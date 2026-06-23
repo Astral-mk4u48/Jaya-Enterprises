@@ -1,0 +1,14 @@
+{
+  "background_color": "#ffffff",
+  "dir": "auto",
+  "display": "fullscreen",
+  "name": "Jaya Enterprises",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "Invoices",
+  "start_url": "https://jaya-enterprises.vercel.app/",
+  "theme_color": "#1a3a5c",
+  "id": "jaya-enterprises.vercel",
+  "description": "Jaya Enterprises Invoice Maker",
+  "lang": "en"
+}
