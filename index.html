@@ -107,10 +107,12 @@
   .inv-receiver table { width: 100%; border-collapse: collapse; }
   .inv-receiver td { padding: 1.5px 0; vertical-align: top; }
   .inv-receiver td:first-child { white-space: nowrap; min-width: 70px; font-weight: 600; }
+  .inv-receiver td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; }
   .inv-meta { flex: 1; padding: 7px 8px; font-size: 10.5px; }
   .inv-meta table { width: 100%; border-collapse: collapse; }
   .inv-meta td { padding: 1.5px 0; vertical-align: top; }
   .inv-meta td:first-child { white-space: nowrap; font-weight: 600; min-width: 90px; }
+  .inv-meta td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; }
   .inv-meta td:last-child { text-align: right; }
   .items-table { width: 100%; border-collapse: collapse; border-bottom: 1px solid #333; }
   .items-table th { background: #f5f5f5; padding: 5px 6px; font-size: 10px; text-align: center; border-right: 1px solid #333; border-bottom: 1px solid #333; font-weight: 700; }
@@ -380,14 +382,22 @@
           <option value="0">0%</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Tax Type</label>
+        <select id="f-taxtype" onchange="calcTotals()">
+          <option value="cgst_sgst">CGST + SGST (Intra-state)</option>
+          <option value="igst">IGST (Inter-state)</option>
+        </select>
+      </div>
     </div>
     <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;">
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Subtotal</span><span id="calc-subtotal">₹0.00</span></div>
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Packing</span><span id="calc-packing">₹0.00</span></div>
       <div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--danger)"><span>Discount</span><span id="calc-discount">- ₹0.00</span></div>
       <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Taxable Value</span><span id="calc-taxable" style="font-weight:600">₹0.00</span></div>
-      <div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)"><span>SGST 9%</span><span id="calc-sgst">₹0.00</span></div>
-      <div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)"><span>CGST 9%</span><span id="calc-cgst">₹0.00</span></div>
+      <div id="row-sgst" style="display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)"><span id="lbl-sgst">SGST 9%</span><span id="calc-sgst">₹0.00</span></div>
+      <div id="row-cgst" style="display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)"><span id="lbl-cgst">CGST 9%</span><span id="calc-cgst">₹0.00</span></div>
+      <div id="row-igst" style="display:none;justify-content:space-between;padding:3px 0;color:var(--muted)"><span id="lbl-igst">IGST 18%</span><span id="calc-igst">₹0.00</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0 0;font-size:16px;font-weight:700;border-top:1px solid var(--border);margin-top:4px;color:var(--accent)"><span>INVOICE TOTAL</span><span id="calc-total">₹0.00</span></div>
     </div>
   </div>
@@ -590,7 +600,7 @@ function parseSheetRow(r) {
   // 12:Lot1 13:HSN1 14:Desc1 15:Qty1 16:Rate1
   // 17:Lot2 18:HSN2 19:Desc2 20:Qty2 21:Rate2
   // 22:Lot3 23:HSN3 24:Desc3 25:Qty3 26:Rate3
-  // 27:PackingCharges 28:DiscountPercent 29:GSTRate
+  // 27:PackingCharges 28:DiscountPercent 29:GSTRate 30:TaxType (cgst_sgst|igst)
   const items = [];
   for (let i = 0; i < 5; i++) {
     const base = 12 + i * 5;
@@ -607,14 +617,20 @@ function parseSheetRow(r) {
   const discountAmt = grossAmount * discountPct / 100;
   const taxable = grossAmount - discountAmt;
   const gstRate = parseFloat(r[29]) || 9;
-  const sgst = taxable * gstRate / 100;
-  const cgst = taxable * gstRate / 100;
-  const total = taxable + sgst + cgst;
+  const taxType = (r[30] || 'cgst_sgst').trim();
+  let sgst = 0, cgst = 0, igst = 0;
+  if (taxType === 'igst') {
+    igst = taxable * (gstRate * 2) / 100;
+  } else {
+    sgst = taxable * gstRate / 100;
+    cgst = taxable * gstRate / 100;
+  }
+  const total = taxable + sgst + cgst + igst;
   return {
     invNo: r[1] || '', invDate: r[2] || '', timestamp: r[0] || '',
     custName: r[3] || '', address: r[4] || '', state: r[5] || '', stateCode: r[6] || '', custGSTIN: r[7] || '',
     bundles: r[8] || '', transport: r[9] || '', lrNo: r[10] || '', supplyDt: r[11] || '',
-    items, packing, discountPct, discountAmt, gstRate, subtotal, taxable, sgst, cgst, total
+    items, packing, discountPct, discountAmt, gstRate, taxType, subtotal, taxable, sgst, cgst, igst, total
   };
 }
 
@@ -648,6 +664,25 @@ function parseDate(str) {
   return new Date(str);
 }
 
+// Format a YYYY-MM-DD (from <input type="date">) or any parseable date string as DD-MM-YYYY
+function formatDateDMY(str) {
+  if (!str) return '';
+  // Already in YYYY-MM-DD form from the date input
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+  if (isoMatch) {
+    const [, yyyy, mm, dd] = isoMatch;
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  const d = parseDate(str);
+  if (d && !isNaN(d)) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  return str;
+}
+
 // ---- RENDER RECENT ----
 function renderRecent() {
   const el = document.getElementById('recent-list');
@@ -675,7 +710,7 @@ function invCard(inv) {
     <div class="inv-main">
       <div class="inv-num">Invoice #${inv.invNo}</div>
       <div class="inv-name">${inv.custName || '—'}</div>
-      <div class="inv-date">${inv.invDate || ''}</div>
+      <div class="inv-date">${formatDateDMY(inv.invDate) || ''}</div>
     </div>
     <div class="inv-amount">
       <div class="inv-total">₹${(inv.total||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
@@ -755,16 +790,41 @@ function calcTotals() {
   const discountAmt = grossAmount * discountPct / 100;
   const taxable = grossAmount - discountAmt;
   const gstRate = parseFloat(document.getElementById('f-gst').value) || 9;
-  const sgst = taxable * gstRate / 100;
-  const cgst = taxable * gstRate / 100;
-  const total = taxable + sgst + cgst;
+  const taxType = document.getElementById('f-taxtype').value;
+  let sgst = 0, cgst = 0, igst = 0;
+  if (taxType === 'igst') {
+    igst = taxable * (gstRate * 2) / 100;
+  } else {
+    sgst = taxable * gstRate / 100;
+    cgst = taxable * gstRate / 100;
+  }
+  const total = taxable + sgst + cgst + igst;
   const fmt = v => '₹' + v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
   document.getElementById('calc-subtotal').textContent = fmt(subtotal);
   document.getElementById('calc-packing').textContent = fmt(packing);
   document.getElementById('calc-discount').textContent = '- ' + fmt(discountAmt);
   document.getElementById('calc-taxable').textContent = fmt(taxable);
-  document.getElementById('calc-sgst').textContent = fmt(sgst);
-  document.getElementById('calc-cgst').textContent = fmt(cgst);
+
+  // Toggle SGST/CGST vs IGST rows based on selected tax type
+  const rowSgst = document.getElementById('row-sgst');
+  const rowCgst = document.getElementById('row-cgst');
+  const rowIgst = document.getElementById('row-igst');
+  if (taxType === 'igst') {
+    rowSgst.style.display = 'none';
+    rowCgst.style.display = 'none';
+    rowIgst.style.display = 'flex';
+    const igstRateLabel = (gstRate*2) % 1 === 0 ? (gstRate*2).toFixed(0) : (gstRate*2).toFixed(1);
+    document.getElementById('lbl-igst').textContent = `IGST ${igstRateLabel}%`;
+    document.getElementById('calc-igst').textContent = fmt(igst);
+  } else {
+    rowSgst.style.display = 'flex';
+    rowCgst.style.display = 'flex';
+    rowIgst.style.display = 'none';
+    document.getElementById('lbl-sgst').textContent = `SGST ${gstRate}%`;
+    document.getElementById('lbl-cgst').textContent = `CGST ${gstRate}%`;
+    document.getElementById('calc-sgst').textContent = fmt(sgst);
+    document.getElementById('calc-cgst').textContent = fmt(cgst);
+  }
   document.getElementById('calc-total').textContent = fmt(total);
 }
 
@@ -787,9 +847,15 @@ function previewInvoice() {
   const discountAmt = grossAmount * discountPct / 100;
   const taxable = grossAmount - discountAmt;
   const gstRate = parseFloat(document.getElementById('f-gst').value) || 9;
-  const sgst = taxable * gstRate / 100;
-  const cgst = taxable * gstRate / 100;
-  const total = taxable + sgst + cgst;
+  const taxType = document.getElementById('f-taxtype').value;
+  let sgst = 0, cgst = 0, igst = 0;
+  if (taxType === 'igst') {
+    igst = taxable * (gstRate * 2) / 100;
+  } else {
+    sgst = taxable * gstRate / 100;
+    cgst = taxable * gstRate / 100;
+  }
+  const total = taxable + sgst + cgst + igst;
   currentInvoice = {
     invNo: document.getElementById('f-invno').value,
     invDate: document.getElementById('f-invdt').value,
@@ -802,7 +868,7 @@ function previewInvoice() {
     transport: document.getElementById('f-transport').value,
     lrNo: document.getElementById('f-lrno').value,
     supplyDt: document.getElementById('f-supply-dt').value,
-    items, packing, discountPct, discountAmt, gstRate, subtotal, taxable, sgst, cgst, total
+    items, packing, discountPct, discountAmt, gstRate, taxType, subtotal, taxable, sgst, cgst, igst, total
   };
   showScreen('preview');
   renderInvoiceHTML(currentInvoice);
@@ -823,8 +889,9 @@ function renderInvoiceHTML(inv) {
     </tr>`).join('');
   for(let i=0;i<emptyRows;i++) itemsHTML += `<tr class="empty-row"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
   const words = numberToWords(Math.round(inv.total||0));
-  const igst = 0;
   const roundOff = Math.round(inv.total||0) - (inv.total||0);
+  const isIgst = inv.taxType === 'igst';
+  const igstRateDisplay = (inv.gstRate||9) * 2;
   document.getElementById('invoice-render').innerHTML = `
   <div class="inv-box">
     <div class="inv-header">
@@ -837,21 +904,21 @@ function renderInvoiceHTML(inv) {
       <div class="inv-receiver">
         <div class="section-hdr">Details of the Receiver :</div>
         <table>
-          <tr><td>Name</td><td>: ${inv.custName||''}</td></tr>
-          <tr><td>Address</td><td>: ${(inv.address||'').replace(/\n/g,'<br>')}</td></tr>
-          <tr><td>State</td><td>: ${inv.state||''}</td></tr>
-          <tr><td>State Code</td><td>: ${inv.stateCode||''}</td></tr>
-          <tr><td>GSTIN No</td><td>: ${inv.custGSTIN||''}</td></tr>
+          <tr><td>Name</td><td class="colon">:</td><td>${inv.custName||''}</td></tr>
+          <tr><td>Address</td><td class="colon">:</td><td>${(inv.address||'').replace(/\n/g,'<br>')}</td></tr>
+          <tr><td>State</td><td class="colon">:</td><td>${inv.state||''}</td></tr>
+          <tr><td>State Code</td><td class="colon">:</td><td>${inv.stateCode||''}</td></tr>
+          <tr><td>GSTIN No</td><td class="colon">:</td><td>${inv.custGSTIN||''}</td></tr>
         </table>
       </div>
       <div class="inv-meta">
         <table>
-          <tr><td>Invoice No</td><td>: ${inv.invNo||''}</td></tr>
-          <tr><td>Invoice Dt</td><td>: ${inv.invDate||''}</td></tr>
-          <tr><td>No.of Bundles</td><td>: ${inv.bundles||''}</td></tr>
-          <tr><td>Mode of Transport</td><td>: ${inv.transport||''}</td></tr>
-          <tr><td>LR No</td><td>: ${inv.lrNo||''}</td></tr>
-          <tr><td>Date &amp; Time of Supply</td><td>: ${inv.supplyDt||''}</td></tr>
+          <tr><td>Invoice No</td><td class="colon">:</td><td>${inv.invNo||''}</td></tr>
+          <tr><td>Invoice Dt</td><td class="colon">:</td><td>${formatDateDMY(inv.invDate)||''}</td></tr>
+          <tr><td>No.of Bundles</td><td class="colon">:</td><td>${inv.bundles||''}</td></tr>
+          <tr><td>Mode of Transport</td><td class="colon">:</td><td>${inv.transport||''}</td></tr>
+          <tr><td>LR No</td><td class="colon">:</td><td>${inv.lrNo||''}</td></tr>
+          <tr><td>Date &amp; Time of Supply</td><td class="colon">:</td><td>${inv.supplyDt||''}</td></tr>
         </table>
       </div>
     </div>
@@ -887,9 +954,15 @@ function renderInvoiceHTML(inv) {
           <tr><td>Packing Charges</td><td></td><td>${inv.packing ? fmt(inv.packing) : '-'}</td></tr>
           ${inv.discountAmt ? `<tr><td>Discount</td><td>${(inv.discountPct||0).toFixed(0)}%</td><td>${fmt(inv.discountAmt)}</td></tr>` : ''}
           <tr><td>Taxable Value</td><td></td><td>${fmt(inv.taxable||0)}</td></tr>
+          ${isIgst ? `
+          <tr><td>SGST</td><td></td><td>-</td></tr>
+          <tr><td>CGST</td><td></td><td>-</td></tr>
+          <tr><td>IGST</td><td>${igstRateDisplay}.00%</td><td>${fmt(inv.igst||0)}</td></tr>
+          ` : `
           <tr><td>SGST</td><td>${inv.gstRate||9}.00%</td><td>${fmt(inv.sgst||0)}</td></tr>
           <tr><td>CGST</td><td>${inv.gstRate||9}.00%</td><td>${fmt(inv.cgst||0)}</td></tr>
           <tr><td>IGST</td><td></td><td>-</td></tr>
+          `}
           <tr><td>Total Amount</td><td></td><td>${fmt(inv.total||0)}</td></tr>
           <tr><td>Round Off</td><td></td><td>${roundOff >= 0 ? '+' : ''}${roundOff.toFixed(2)}</td></tr>
           <tr class="final"><td colspan="2">INVOICE TOTAL</td><td>${Math.round(inv.total||0).toLocaleString('en-IN')}.00</td></tr>
@@ -949,6 +1022,7 @@ function printInvoice() {
     .inv-receiver table,.inv-meta table{width:100%;border-collapse:collapse}
     .inv-receiver td,.inv-meta td{padding:1.5px 0;vertical-align:top}
     .inv-receiver td:first-child{white-space:nowrap;min-width:65px;font-weight:600}
+    .inv-receiver td.colon,.inv-meta td.colon{white-space:nowrap;text-align:center;width:12px;padding:1.5px 2px;font-weight:600}
     .inv-meta{flex:1;padding:6px 8px;font-size:9.5px}
     .inv-meta td:first-child{white-space:nowrap;font-weight:600;min-width:85px}
     .inv-meta td:last-child{text-align:right}
@@ -1020,6 +1094,7 @@ window.onload = () => {
   loadConfig();
   setTodayDate();
   loadCachedInvoices();
+  calcTotals();
   if (invoices.length) { renderStats(); renderRecent(); }
   else if (config.sheetId && config.apiKey) syncData();
 };
