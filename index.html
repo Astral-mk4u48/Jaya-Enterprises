@@ -189,6 +189,8 @@
   }
 </style>
 </head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
  <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -1009,7 +1011,7 @@ function printInvoice() {
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice #${currentInvoice?.invNo||''} - ${config.coName}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:10px;padding:8mm}
+    body{font-family:Arial,sans-serif;font-size:10px;padding:4mm}
     .inv-box{border:1.5px solid #333}
     .inv-header{text-align:center;padding:8px 6px 6px;border-bottom:1px solid #333}
     .inv-header .co-name{font-size:15px;font-weight:700;letter-spacing:0.5px}
@@ -1056,15 +1058,73 @@ function printInvoice() {
     .inv-sign{flex:1;padding:6px 8px;text-align:right}
     .inv-sign .for-line{font-size:9.5px;font-weight:600;margin-bottom:24px}
     .inv-sign .auth-line{font-size:9px;border-top:0.5px solid #999;padding-top:3px}
-    @page{size:A4;margin:8mm}
+    @page{size:A4;margin:5mm}
   </style></head><body>${content}</body></html>`);
   w.document.close();
   w.onload = () => { w.print(); };
 }
 
 function savePDF() {
-  showToast('Use Print → Save as PDF in the print dialog');
-  printInvoice();
+  if (!currentInvoice) { showToast('No invoice to save'); return; }
+  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+    showToast('PDF library failed to load — check your connection');
+    return;
+  }
+  showToast('Generating PDF…');
+
+  const source = document.getElementById('invoice-render').querySelector('.inv-box');
+  if (!source) { showToast('Nothing to export'); return; }
+
+  // Render the invoice off-screen at a fixed width so the output is
+  // consistent regardless of the device's screen size, then snapshot it.
+  const renderWidth = 760; // px, gives a crisp but not huge canvas at A4 proportions
+  const clone = source.cloneNode(true);
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'fixed';
+  wrapper.style.left = '-9999px';
+  wrapper.style.top = '0';
+  wrapper.style.width = renderWidth + 'px';
+  wrapper.style.background = '#ffffff';
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
+
+  html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+    .then(canvas => {
+      document.body.removeChild(wrapper);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 5; // mm — tight margin like the reference printed bill
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+
+      // Fit the invoice to the usable page area while preserving aspect ratio,
+      // so it fills the page like the reference bill instead of floating
+      // in a sea of white space.
+      const imgRatio = canvas.height / canvas.width;
+      let renderW = usableWidth;
+      let renderH = renderW * imgRatio;
+      if (renderH > usableHeight) {
+        renderH = usableHeight;
+        renderW = renderH / imgRatio;
+      }
+      const x = margin + (usableWidth - renderW) / 2;
+      const y = margin;
+
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', x, y, renderW, renderH);
+
+      const fname = `Invoice_${currentInvoice.invNo || 'draft'}_${config.coName.replace(/\s+/g,'_')}.pdf`;
+      pdf.save(fname);
+      showToast('PDF downloaded ✓');
+    })
+    .catch(err => {
+      if (wrapper.parentNode) document.body.removeChild(wrapper);
+      console.error(err);
+      showToast('PDF generation failed');
+    });
 }
 
 function openGoogleForm() {
