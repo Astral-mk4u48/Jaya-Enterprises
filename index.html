@@ -1040,17 +1040,16 @@ function buildInvoicePDF() {
         const usableWidth = pageWidth - margin * 2;
         const usableHeight = pageHeight - margin * 2;
 
-        // Fit to the usable width and scale height to match, preserving the
-        // canvas's natural aspect ratio. If the scaled height would run
-        // taller than the page, scale down by height instead.
+        // Always fill the full usable width. For height, stretch toward
+        // filling the page but cap how far we stretch past the natural
+        // aspect ratio so the result fills the page without looking
+        // visibly distorted.
         const imgRatio = canvas.height / canvas.width;
-        let renderW = usableWidth;
-        let renderH = renderW * imgRatio;
-        if (renderH > usableHeight) {
-          renderH = usableHeight;
-          renderW = renderH / imgRatio;
-        }
-        const x = margin + (usableWidth - renderW) / 2;
+        const naturalH = usableWidth * imgRatio;
+        const maxStretch = 1.35; // cap: stretch at most 35% taller than natural height
+        const renderW = usableWidth;
+        const renderH = Math.min(usableHeight, naturalH * maxStretch);
+        const x = margin;
         const y = margin;
 
         const imgData = canvas.toDataURL('image/png');
