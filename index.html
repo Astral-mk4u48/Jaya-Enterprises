@@ -120,8 +120,8 @@
   .items-table td { padding: 4px 6px; font-size: 10px; text-align: center; border-right: 1px solid #333; vertical-align: top; }
   .items-table td.desc { text-align: left; }
   .items-table td:last-child { border-right: none; }
-  .items-table tr.item-row td { border-bottom: 0.5px solid #eee; }
-  .items-table tr.empty-row td { height: 18px; border-bottom: 0.5px solid #f0f0f0; }
+  .items-table tr.item-row td { border-bottom: 1px solid #eee; }
+  .items-table tr.empty-row td { height: 18px; border-bottom: 1px solid #f0f0f0; }
   .inv-footer { display: flex; border-bottom: 1px solid #333; }
   .inv-words { flex: 1.2; padding: 7px 8px; border-right: 1px solid #333; font-size: 10px; }
   .inv-words .words-label { font-weight: 700; margin-bottom: 3px; }
@@ -879,7 +879,7 @@ function previewInvoice() {
 // ---- INVOICE HTML RENDERER ----
 function renderInvoiceHTML(inv) {
   const fmt = v => v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const emptyRows = Math.max(0, 14 - (inv.items||[]).length);
+  const emptyRows = Math.max(0, 17 - (inv.items||[]).length);
   let itemsHTML = (inv.items||[]).map(item => `
     <tr class="item-row">
       <td>${item.lot||''}</td>
@@ -1040,16 +1040,19 @@ function buildInvoicePDF() {
         const usableWidth = pageWidth - margin * 2;
         const usableHeight = pageHeight - margin * 2;
 
-        // Always fill the full usable width. For height, stretch toward
-        // filling the page but cap how far we stretch past the natural
-        // aspect ratio so the result fills the page without looking
-        // visibly distorted.
+        // Fit to the usable width and scale height to match, preserving the
+        // canvas's natural aspect ratio exactly (no stretching/distortion —
+        // distorting a raster image creates visible artifacts on hairline
+        // table borders). The content itself is padded with enough blank
+        // rows to naturally reach close to a full A4 page at this width.
         const imgRatio = canvas.height / canvas.width;
-        const naturalH = usableWidth * imgRatio;
-        const maxStretch = 1.35; // cap: stretch at most 35% taller than natural height
-        const renderW = usableWidth;
-        const renderH = Math.min(usableHeight, naturalH * maxStretch);
-        const x = margin;
+        let renderW = usableWidth;
+        let renderH = renderW * imgRatio;
+        if (renderH > usableHeight) {
+          renderH = usableHeight;
+          renderW = renderH / imgRatio;
+        }
+        const x = margin + (usableWidth - renderW) / 2;
         const y = margin;
 
         const imgData = canvas.toDataURL('image/png');
