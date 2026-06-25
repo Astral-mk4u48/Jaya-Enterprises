@@ -879,7 +879,7 @@ function previewInvoice() {
 // ---- INVOICE HTML RENDERER ----
 function renderInvoiceHTML(inv) {
   const fmt = v => v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const emptyRows = Math.max(0, 6 - (inv.items||[]).length);
+  const emptyRows = Math.max(0, 14 - (inv.items||[]).length);
   let itemsHTML = (inv.items||[]).map(item => `
     <tr class="item-row">
       <td>${item.lot||''}</td>
