@@ -323,16 +323,8 @@
     <div id="items-container">
       <div class="item-row-form" id="item-0">
         <button class="remove-item" onclick="removeItem(0)" style="display:none">✕</button>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Lot No</label>
-            <input type="text" class="i-lot" placeholder="4817">
-          </div>
-          <div class="form-group">
-            <label>HSN Code</label>
-            <input type="text" class="i-hsn" placeholder="4817">
-          </div>
-        </div>
+        <input type="hidden" class="i-lot" value="">
+        <input type="hidden" class="i-hsn" value="4817">
         <div class="form-group">
           <label>Item Type</label>
           <select class="i-category" onchange="onCategoryChange(this)">
@@ -546,7 +538,7 @@
         <input type="text" id="ps-name-input" placeholder="e.g. June 2026 Rates">
       </div>
       <div style="display:flex;gap:10px">
-        <button class="save-btn" style="flex:1;margin:0" onclick="savePriceSheet()">💾 Save Price Sheet</button>
+        <button class="save-btn" style="flex:1;margin:0" onclick="openPsSaveModal()">💾 Save Price Sheet</button>
         <button class="save-btn" style="flex:1;margin:0;background:var(--brand-light);color:var(--accent)" onclick="cancelPriceSheetBuilder()">Cancel</button>
       </div>
     </div>
@@ -568,6 +560,35 @@
     <span class="nav-icon">⚙️</span>Settings
   </button>
 </nav>
+
+<!-- PDF COLUMN SELECT MODAL -->
+<div id="ps-download-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="font-size:16px;font-weight:700;color:var(--brand);margin-bottom:6px">📄 Download Price Sheet PDF</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Choose which quality columns to include:</div>
+    <div id="ps-col-checks" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:10px">
+      <button class="save-btn" style="flex:1;margin:0" onclick="confirmPsDownload()">⬇️ Download PDF</button>
+      <button class="save-btn" style="flex:1;margin:0;background:var(--brand-light);color:var(--accent)" onclick="closePsDownloadModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SAVE PRICE SHEET MODAL (for edit: save vs save as copy) -->
+<div id="ps-save-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="font-size:16px;font-weight:700;color:var(--brand);margin-bottom:14px">💾 Save Price Sheet</div>
+    <div class="form-group">
+      <label>Price Sheet Name</label>
+      <input type="text" id="ps-save-name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <button class="save-btn" style="margin:0" onclick="doSavePriceSheet('overwrite')">💾 Save (overwrite)</button>
+      <button class="save-btn" style="margin:0;background:var(--brand-light);color:var(--accent)" onclick="doSavePriceSheet('copy')">📋 Save as New Copy</button>
+      <button class="save-btn" style="margin:0;background:#f8fafc;color:var(--muted)" onclick="closePsSaveModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -705,7 +726,8 @@ function renderPriceSheetsList() {
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         <button class="act-btn" style="padding:6px 12px;font-size:12px;background:${s.id===activePriceSheetId?'var(--success)':'var(--accent)'};color:#fff;flex:none" onclick="setActivePriceSheet('${s.id}');renderPriceSheetsList();showToast('${s.name.replace(/'/g,"\\'")} is now active')">${s.id===activePriceSheetId?'✓ In use':'Use this'}</button>
         <div style="display:flex;gap:6px">
-          <button class="act-btn pdf" style="padding:6px 10px;font-size:12px;flex:none" onclick="exportPriceSheetPdf('${s.id}')">📄 PDF</button>
+          <button class="act-btn pdf" style="padding:6px 10px;font-size:12px;flex:none" onclick="openPsDownloadModal('${s.id}')">📄 PDF</button>
+          <button class="act-btn" style="padding:6px 10px;font-size:12px;background:var(--brand-light);color:var(--accent);flex:none" onclick="editPriceSheet('${s.id}')">✏️ Edit</button>
           <button class="act-btn" style="padding:6px 10px;font-size:12px;background:var(--brand-light);color:var(--danger);flex:none" onclick="deletePriceSheet('${s.id}')">🗑</button>
         </div>
       </div>
@@ -725,6 +747,7 @@ function deletePriceSheet(id) {
 
 // ---- PRICE SHEETS: BUILDER ----
 function startNewPriceSheet() {
+  editingSheetId = null;
   draftSheet = { vendor: newEmptyVendorSheet(), groups: [] };
   document.getElementById('ps-name-input').value = '';
   document.getElementById('ps-import-status').textContent = '';
@@ -946,14 +969,130 @@ function savePriceSheet() {
   renderPriceSheetsList();
 }
 
+// ---- PRICE SHEET EDIT ----
+let editingSheetId = null; // null = new sheet, string id = editing existing
+
+function editPriceSheet(id) {
+  const sheet = priceSheets.find(s => s.id === id);
+  if (!sheet) return;
+  editingSheetId = id;
+  // Load sheet data into draftSheet
+  draftSheet = {
+    vendor: JSON.parse(JSON.stringify(sheet.vendor)),
+    groups: JSON.parse(JSON.stringify(sheet.groups))
+  };
+  document.getElementById('ps-list-view').style.display = 'none';
+  document.getElementById('ps-builder-view').style.display = 'block';
+  renderVendorGrid();
+  renderGroupsEditor();
+  renderComputedPreview();
+  // Show save button triggers the modal now
+}
+
+function startNewPriceSheet_orig() {
+  editingSheetId = null;
+  draftSheet = { vendor: newEmptyVendorSheet(), groups: [] };
+  document.getElementById('ps-name-input').value = '';
+  document.getElementById('ps-import-status').textContent = '';
+  document.getElementById('ps-list-view').style.display = 'none';
+  document.getElementById('ps-builder-view').style.display = 'block';
+  renderVendorGrid();
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
+// ---- PS SAVE MODAL ----
+function openPsSaveModal() {
+  const name = editingSheetId
+    ? (priceSheets.find(s => s.id === editingSheetId)?.name || '')
+    : (document.getElementById('ps-name-input').value.trim());
+  document.getElementById('ps-save-name').value = name;
+  // If new sheet, only show "Save" (as new), hide overwrite option
+  const overwriteBtn = document.querySelector('#ps-save-modal button[onclick="doSavePriceSheet(\'overwrite\')"]');
+  if (overwriteBtn) overwriteBtn.style.display = editingSheetId ? 'block' : 'none';
+  document.getElementById('ps-save-modal').style.display = 'flex';
+}
+
+function closePsSaveModal() {
+  document.getElementById('ps-save-modal').style.display = 'none';
+}
+
+function doSavePriceSheet(mode) {
+  const name = document.getElementById('ps-save-name').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  if (!draftSheet.groups.length) { showToast('Add at least one quality group first'); return; }
+  const unassigned = QUALITIES.filter(q => !groupForQuality(draftSheet.groups, q));
+  if (unassigned.length) { showToast(`Assign ${unassigned.join(', ')} to a group first`); return; }
+  const computed = computeSheet(draftSheet.vendor, draftSheet.groups);
+  if (mode === 'overwrite' && editingSheetId) {
+    const idx = priceSheets.findIndex(s => s.id === editingSheetId);
+    if (idx >= 0) {
+      priceSheets[idx] = { ...priceSheets[idx], name, savedAt: new Date().toISOString(), vendor: draftSheet.vendor, groups: draftSheet.groups, computed };
+      savePriceSheetsToStorage();
+      showToast(`"${name}" updated ✓`);
+    }
+  } else {
+    const sheet = { id: 'ps' + Date.now(), name, savedAt: new Date().toISOString(), vendor: draftSheet.vendor, groups: draftSheet.groups, computed };
+    priceSheets.push(sheet);
+    savePriceSheetsToStorage();
+    showToast(`"${name}" saved as new copy ✓`);
+  }
+  editingSheetId = null;
+  closePsSaveModal();
+  showPriceSheetListView();
+  renderPriceSheetsList();
+}
+
+// ---- PS DOWNLOAD MODAL ----
+let psDownloadTargetId = null;
+
+function openPsDownloadModal(id) {
+  psDownloadTargetId = id;
+  const el = document.getElementById('ps-col-checks');
+  // Build checkboxes: "All columns" + each quality
+  const allCols = ['SIZE', ...QUALITIES];
+  el.innerHTML = `
+    <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;padding:8px 10px;background:var(--brand-light);border-radius:8px;cursor:pointer">
+      <input type="checkbox" id="ps-col-all" onchange="toggleAllPsCols(this)" style="width:18px;height:18px;accent-color:var(--accent)"> All Columns (full sheet)
+    </label>
+    <div style="height:1px;background:var(--border);margin:4px 0"></div>
+    ${QUALITIES.map(q => `
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;padding:6px 10px;cursor:pointer;border-radius:8px;border:1px solid var(--border)">
+        <input type="checkbox" class="ps-col-check" value="${q}" style="width:18px;height:18px;accent-color:var(--accent)"> ${q}
+      </label>`).join('')}
+  `;
+  // Default: all checked
+  document.getElementById('ps-col-all').checked = true;
+  document.querySelectorAll('.ps-col-check').forEach(c => c.checked = true);
+  document.getElementById('ps-download-modal').style.display = 'flex';
+}
+
+function toggleAllPsCols(allCheckbox) {
+  document.querySelectorAll('.ps-col-check').forEach(c => c.checked = allCheckbox.checked);
+}
+
+function closePsDownloadModal() {
+  document.getElementById('ps-download-modal').style.display = 'none';
+  psDownloadTargetId = null;
+}
+
+function confirmPsDownload() {
+  const selectedQualities = [];
+  document.querySelectorAll('.ps-col-check').forEach(c => { if (c.checked) selectedQualities.push(c.value); });
+  if (!selectedQualities.length) { showToast('Select at least one column'); return; }
+  closePsDownloadModal();
+  exportPriceSheetPdf(psDownloadTargetId, selectedQualities);
+}
+
 // ---- PRICE SHEET PDF EXPORT ----
 // Produces a PDF that looks like the standard vendor sheet format
 // (header row: SIZE / REGULAR / SONAL / FINE / SUPER FINE / POLYNET,
 //  Standard then Box sections) and invisibly embeds a JSON blob in the
 //  PDF metadata so it can be losslessly re-imported later.
-function exportPriceSheetPdf(id) {
+function exportPriceSheetPdf(id, selectedQualities) {
   const sheet = priceSheets.find(s => s.id === id);
   if (!sheet) return;
+  if (!selectedQualities || !selectedQualities.length) selectedQualities = [...QUALITIES];
   if (typeof window.jspdf === 'undefined') {
     showToast('PDF library not loaded — check your connection');
     return;
@@ -966,20 +1105,17 @@ function exportPriceSheetPdf(id) {
   const pageH = doc.internal.pageSize.getHeight();
   let y = margin;
 
-  // ── TOP STRIP: left address + right cell number ──────────────────────────
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('68/6 - Middle Street, Chatrapatti - 626 102', margin, y);
   doc.text('Cell: 94870 53751', pageW - margin, y, { align: 'right' });
   y += 5;
 
-  // ── COMPANY NAME (bold, centred, large) ──────────────────────────────────
   doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
   doc.text('JAYA ENTERPRISES', pageW / 2, y, { align: 'center' });
   y += 6;
 
-  // ── ADDRESS LINE 2 + GSTIN (centred, normal) ─────────────────────────────
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text('(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu', pageW / 2, y, { align: 'center' });
@@ -988,26 +1124,31 @@ function exportPriceSheetPdf(id) {
   doc.text('GSTIN : 33CDQPK3907D1ZO', pageW / 2, y, { align: 'center' });
   y += 5;
 
-  // ── TITLE: PRICE SHEET (bold, centred) ───────────────────────────────────
   doc.setFontSize(11);
   doc.text('PRICE SHEET', pageW / 2, y, { align: 'center' });
+  // Show which columns are included if not all
+  if (selectedQualities.length < QUALITIES.length) {
+    y += 5;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Columns: ' + selectedQualities.join(' | '), pageW / 2, y, { align: 'center' });
+  }
   y += 7;
 
-  // ── HORIZONTAL RULE ──────────────────────────────────────────────────────
   doc.setLineWidth(0.4);
   doc.line(margin, y, pageW - margin, y);
   y += 5;
 
-  // ── TABLE LAYOUT ─────────────────────────────────────────────────────────
-  // Total usable width: pageW - 2*margin = 186mm. SIZE col wider, rest equal.
+  // Build column widths based on selectedQualities
+  const numQCols = selectedQualities.length;
   const tableW = pageW - 2 * margin;
-  const sizeColW = 24;
-  const qualColW = (tableW - sizeColW) / 5; // ~32.4mm each
-  const colW = [sizeColW, qualColW, qualColW, qualColW, qualColW, qualColW];
+  const sizeColW = 28;
+  const qualColW = (tableW - sizeColW) / numQCols;
+  const headers = ['SIZE', ...selectedQualities];
+  const colW = [sizeColW, ...selectedQualities.map(() => qualColW)];
   const colX = [margin];
   for (let i = 1; i < colW.length; i++) colX.push(colX[i-1] + colW[i-1]);
   const rowH = 6.2;
-  const headers = ['SIZE', ...QUALITIES];
 
   function drawRow(cells, bold, shaded) {
     if (shaded) {
@@ -1027,7 +1168,6 @@ function exportPriceSheetPdf(id) {
     y += rowH;
   }
 
-  // ── SECTIONS ─────────────────────────────────────────────────────────────
   const termsLines = [
     'Terms & conditions:-',
     '1. Freight charges extra',
@@ -1036,7 +1176,7 @@ function exportPriceSheetPdf(id) {
     '4. No Discount',
     '5. GST 18% extra'
   ];
-  const termsH = 6 + termsLines.length * 4.5; // rough height reserved at bottom
+  const termsH = 6 + termsLines.length * 4.5;
   const bottomReserve = margin + termsH + 4;
 
   Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
@@ -1045,25 +1185,24 @@ function exportPriceSheetPdf(id) {
       doc.addPage();
       y = margin;
     }
-    // Section label
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
     doc.text(cat, margin, y + 4);
     y += 6;
-    // Column header
     drawRow(headers, true, true);
-    // Data rows
     PRICE_SHEET_SKELETON[cat].forEach(size => {
-      const rates = (sheet.computed[cat] && sheet.computed[cat][size]) || [null,null,null,null,null];
-      const cells = [size, ...rates.map(r => r === null ? '—' : r.toFixed(2))];
+      const allRates = (sheet.computed[cat] && sheet.computed[cat][size]) || [null,null,null,null,null];
+      const filteredRates = selectedQualities.map(q => {
+        const qi = QUALITIES.indexOf(q);
+        return qi >= 0 ? allRates[qi] : null;
+      });
+      const cells = [size, ...filteredRates.map(r => r === null ? '—' : r.toFixed(2))];
       drawRow(cells, false, false);
     });
     y += 4;
   });
 
-  // ── TERMS & CONDITIONS ───────────────────────────────────────────────────
-  // Always at the bottom of the last page, after a rule
   y += 2;
   doc.setDrawColor(160, 160, 160);
   doc.setLineWidth(0.3);
@@ -1082,7 +1221,7 @@ function exportPriceSheetPdf(id) {
     y += 4.5;
   });
 
-  // ── EMBEDDED DATA (invisible, for re-import) ─────────────────────────────
+  // Embed full data for re-import (always includes all data regardless of columns shown)
   const payload = {
     _jayaPriceSheet: true,
     id: sheet.id,
@@ -1403,10 +1542,8 @@ function addItem() {
   div.id = 'item-' + itemIndex;
   div.innerHTML = `
     <button class="remove-item" onclick="removeItem(${itemIndex})">✕</button>
-    <div class="form-row">
-      <div class="form-group"><label>Lot No</label><input type="text" class="i-lot" placeholder="4817"></div>
-      <div class="form-group"><label>HSN Code</label><input type="text" class="i-hsn" placeholder="4817"></div>
-    </div>
+    <input type="hidden" class="i-lot" value="">
+    <input type="hidden" class="i-hsn" value="4817">
     <div class="form-group">
       <label>Item Type</label>
       <select class="i-category" onchange="onCategoryChange(this)">
