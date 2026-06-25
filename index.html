@@ -1059,7 +1059,7 @@ function printInvoice() {
     .inv-sign{flex:1;padding:6px 8px;text-align:right}
     .inv-sign .for-line{font-size:9.5px;font-weight:600;margin-bottom:24px}
     .inv-sign .auth-line{font-size:9px;border-top:0.5px solid #999;padding-top:3px}
-    @page{size:A4;margin:3mm}
+    @page{size:A4;margin:8mm}
   </style></head><body>${content}</body></html>`);
   w.document.close();
   w.onload = () => { w.print(); };
@@ -1097,7 +1097,7 @@ function savePDF() {
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 3; // mm — minimal margin so the invoice fills the printable page
+      const margin = 8; // mm — a bit more breathing room, less stretch distortion
       const usableWidth = pageWidth - margin * 2;
       const usableHeight = pageHeight - margin * 2;
 
