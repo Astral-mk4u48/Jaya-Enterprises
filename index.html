@@ -1011,8 +1011,9 @@ function printInvoice() {
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice #${currentInvoice?.invNo||''} - ${config.coName}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:10px;padding:4mm}
-    .inv-box{border:1.5px solid #333}
+    html,body{width:100%;height:100%}
+    body{font-family:Arial,sans-serif;font-size:10px;padding:0}
+    .inv-box{width:100%;height:100%;border:1.5px solid #333}
     .inv-header{text-align:center;padding:8px 6px 6px;border-bottom:1px solid #333}
     .inv-header .co-name{font-size:15px;font-weight:700;letter-spacing:0.5px}
     .inv-header .co-addr{font-size:9px;line-height:1.6;margin-top:2px}
@@ -1058,7 +1059,7 @@ function printInvoice() {
     .inv-sign{flex:1;padding:6px 8px;text-align:right}
     .inv-sign .for-line{font-size:9.5px;font-weight:600;margin-bottom:24px}
     .inv-sign .auth-line{font-size:9px;border-top:0.5px solid #999;padding-top:3px}
-    @page{size:A4;margin:5mm}
+    @page{size:A4;margin:3mm}
   </style></head><body>${content}</body></html>`);
   w.document.close();
   w.onload = () => { w.print(); };
@@ -1096,21 +1097,19 @@ function savePDF() {
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 5; // mm — tight margin like the reference printed bill
+      const margin = 3; // mm — minimal margin so the invoice fills the printable page
       const usableWidth = pageWidth - margin * 2;
       const usableHeight = pageHeight - margin * 2;
 
-      // Fit the invoice to the usable page area while preserving aspect ratio,
-      // so it fills the page like the reference bill instead of floating
-      // in a sea of white space.
-      const imgRatio = canvas.height / canvas.width;
-      let renderW = usableWidth;
-      let renderH = renderW * imgRatio;
-      if (renderH > usableHeight) {
-        renderH = usableHeight;
-        renderW = renderH / imgRatio;
-      }
-      const x = margin + (usableWidth - renderW) / 2;
+      // Stretch the invoice to fill the entire usable page area (width AND
+      // height) so it fills the printed page edge-to-edge, matching how a
+      // one-page invoice should look when printed. We deliberately do not
+      // preserve the canvas aspect ratio here — a few percent of stretch is
+      // visually unnoticeable on a text/table layout like this, and filling
+      // the page is what the user actually wants.
+      const renderW = usableWidth;
+      const renderH = usableHeight;
+      const x = margin;
       const y = margin;
 
       const imgData = canvas.toDataURL('image/png');
