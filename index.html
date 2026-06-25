@@ -961,77 +961,128 @@ function exportPriceSheetPdf(id) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-  const margin = 10;
+  const margin = 12;
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   let y = margin;
 
-  // -- Header --
-  doc.setFontSize(14);
+  // ── TOP STRIP: left address + right cell number ──────────────────────────
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('68/6 - Middle Street, Chatrapatti - 626 102', margin, y);
+  doc.text('Cell: 94870 53751', pageW - margin, y, { align: 'right' });
+  y += 5;
+
+  // ── COMPANY NAME (bold, centred, large) ──────────────────────────────────
+  doc.setFontSize(15);
   doc.setFont('helvetica', 'bold');
-  doc.text(config.coName, pageW / 2, y, { align: 'center' });
+  doc.text('JAYA ENTERPRISES', pageW / 2, y, { align: 'center' });
   y += 6;
+
+  // ── ADDRESS LINE 2 + GSTIN (centred, normal) ─────────────────────────────
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(config.addr1, pageW / 2, y, { align: 'center' });
-  y += 4;
-  doc.text(config.addr2, pageW / 2, y, { align: 'center' });
+  doc.text('(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu', pageW / 2, y, { align: 'center' });
   y += 5;
   doc.setFont('helvetica', 'bold');
-  doc.text('PRICE SHEET — ' + sheet.name.toUpperCase(), pageW / 2, y, { align: 'center' });
+  doc.text('GSTIN : 33CDQPK3907D1ZO', pageW / 2, y, { align: 'center' });
   y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text('Saved: ' + new Date(sheet.savedAt).toLocaleDateString('en-IN'), pageW / 2, y, { align: 'center' });
-  y += 6;
 
-  // -- Column layout --
-  const colW = [28, 26, 26, 26, 26, 26]; // SIZE + 5 quality cols
+  // ── TITLE: PRICE SHEET (bold, centred) ───────────────────────────────────
+  doc.setFontSize(11);
+  doc.text('PRICE SHEET', pageW / 2, y, { align: 'center' });
+  y += 7;
+
+  // ── HORIZONTAL RULE ──────────────────────────────────────────────────────
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, pageW - margin, y);
+  y += 5;
+
+  // ── TABLE LAYOUT ─────────────────────────────────────────────────────────
+  // Total usable width: pageW - 2*margin = 186mm. SIZE col wider, rest equal.
+  const tableW = pageW - 2 * margin;
+  const sizeColW = 24;
+  const qualColW = (tableW - sizeColW) / 5; // ~32.4mm each
+  const colW = [sizeColW, qualColW, qualColW, qualColW, qualColW, qualColW];
   const colX = [margin];
   for (let i = 1; i < colW.length; i++) colX.push(colX[i-1] + colW[i-1]);
-  const rowH = 6;
+  const rowH = 6.2;
   const headers = ['SIZE', ...QUALITIES];
 
-  function drawRow(cells, isBold, isHeader) {
-    const fillHeader = isHeader;
-    if (fillHeader) {
-      doc.setFillColor(230, 230, 230);
-      doc.rect(margin, y, colW.reduce((a,b)=>a+b,0), rowH, 'F');
+  function drawRow(cells, bold, shaded) {
+    if (shaded) {
+      doc.setFillColor(235, 235, 235);
+      doc.rect(margin, y, tableW, rowH, 'F');
     }
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    doc.setFontSize(8);
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.2);
     cells.forEach((cell, i) => {
       doc.rect(colX[i], y, colW[i], rowH);
-      doc.text(String(cell ?? ''), colX[i] + colW[i]/2, y + 4, { align: 'center' });
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(bold ? 8 : 7.5);
+      doc.setTextColor(0, 0, 0);
+      const cx = colX[i] + colW[i] / 2;
+      doc.text(String(cell ?? ''), cx, y + rowH * 0.65, { align: 'center' });
     });
     y += rowH;
   }
 
-  // -- Sections --
+  // ── SECTIONS ─────────────────────────────────────────────────────────────
+  const termsLines = [
+    'Terms & conditions:-',
+    '1. Freight charges extra',
+    '2. Payment: Immediate after delivery',
+    '3. Mode of payment: Core Banking',
+    '4. No Discount',
+    '5. GST 18% extra'
+  ];
+  const termsH = 6 + termsLines.length * 4.5; // rough height reserved at bottom
+  const bottomReserve = margin + termsH + 4;
+
   Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
-    // Check page space
     const rowsNeeded = 2 + PRICE_SHEET_SKELETON[cat].length;
-    if (y + rowsNeeded * rowH > doc.internal.pageSize.getHeight() - margin) {
+    if (y + rowsNeeded * rowH > pageH - bottomReserve) {
       doc.addPage();
       y = margin;
     }
-    // Section header
+    // Section label
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
     doc.text(cat, margin, y + 4);
     y += 6;
-    // Column header row
+    // Column header
     drawRow(headers, true, true);
     // Data rows
     PRICE_SHEET_SKELETON[cat].forEach(size => {
       const rates = (sheet.computed[cat] && sheet.computed[cat][size]) || [null,null,null,null,null];
-      const cells = [size, ...rates.map(r => r === null ? '---' : r.toFixed(2))];
+      const cells = [size, ...rates.map(r => r === null ? '—' : r.toFixed(2))];
       drawRow(cells, false, false);
     });
-    y += 3;
+    y += 4;
   });
 
-  // -- Invisibly embed the full sheet data in PDF Subject metadata for re-import --
-  // We encode as a base64 JSON payload so it survives PDF text extraction.
+  // ── TERMS & CONDITIONS ───────────────────────────────────────────────────
+  // Always at the bottom of the last page, after a rule
+  y += 2;
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageW - margin, y);
+  y += 5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(termsLines[0], margin, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  termsLines.slice(1).forEach(line => {
+    doc.text(line, margin, y);
+    y += 4.5;
+  });
+
+  // ── EMBEDDED DATA (invisible, for re-import) ─────────────────────────────
   const payload = {
     _jayaPriceSheet: true,
     id: sheet.id,
@@ -1042,11 +1093,10 @@ function exportPriceSheetPdf(id) {
     computed: sheet.computed
   };
   const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  // Embed as the PDF Subject field — pdf.js will surface this as document metadata
   doc.setProperties({
     title: 'Price Sheet — ' + sheet.name,
     subject: 'JAYA_PS_DATA:' + encoded,
-    author: config.coName
+    author: 'JAYA ENTERPRISES'
   });
 
   const fname = `PriceSheet_${sheet.name.replace(/\s+/g,'_')}.pdf`;
