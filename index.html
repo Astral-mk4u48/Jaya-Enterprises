@@ -294,16 +294,25 @@
     <div class="form-row">
       <div class="form-group">
         <label>State</label>
-        <input type="text" id="f-state" placeholder="Tamilnadu">
+        <select id="f-state" onchange="onStateChange(this.value)">
+          <option value="">— Select State —</option>
+          <option value="Tamil Nadu">Tamil Nadu</option>
+          <option value="Karnataka">Karnataka</option>
+          <option value="Andhra Pradesh">Andhra Pradesh</option>
+          <option value="Telangana">Telangana</option>
+          <option value="Kerala">Kerala</option>
+          <option value="Puducherry">Puducherry</option>
+          <option value="Lakshadweep">Lakshadweep</option>
+        </select>
       </div>
       <div class="form-group">
         <label>State Code</label>
-        <input type="text" id="f-statecode" placeholder="33">
+        <input type="text" id="f-statecode" placeholder="33" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;">
       </div>
     </div>
     <div class="form-group">
       <label>GSTIN No</label>
-      <input type="text" id="f-gstin" placeholder="33 AONPK 3546 G1 ZX">
+      <input type="text" id="f-gstin" placeholder="33AONPK3546G1ZX" oninput="onGstinInput(this.value)">
     </div>
   </div>
 
@@ -377,11 +386,11 @@
     <div class="form-row">
       <div class="form-group">
         <label>Packing Charges (₹)</label>
-        <input type="number" id="f-packing" placeholder="0" value="0" oninput="calcTotals()">
+        <input type="number" id="f-packing" placeholder="0" value="0" inputmode="numeric" oninput="calcTotals()">
       </div>
       <div class="form-group">
         <label>Discount (%)</label>
-        <input type="number" step="0.01" id="f-discount" placeholder="0" value="0" oninput="calcTotals()">
+        <input type="number" step="0.01" id="f-discount" placeholder="0" value="0" inputmode="decimal" oninput="calcTotals()">
       </div>
     </div>
     <div class="form-row">
@@ -414,7 +423,11 @@
     </div>
   </div>
 
-  <button class="submit-inv-btn" onclick="previewInvoice()">👁 Preview &amp; Print Invoice</button>
+  <div style="background:var(--surface);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+    <div id="items-qty-badge" style="font-size:13px;color:var(--muted);font-weight:500;">Total Items: — | Total Qty: —</div>
+    <button onclick="clearEntireBill()" style="background:none;border:1.5px solid var(--danger);color:var(--danger);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">🗑 Clear Bill</button>
+  </div>
+  <button class="submit-inv-btn" id="submit-inv-btn" onclick="previewInvoice()">👁 Preview &amp; Print Invoice</button>
 </div>
 
 <div id="screen-history" class="screen">
@@ -431,6 +444,10 @@
 </div>
 
 <div id="screen-preview" class="screen">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <button onclick="goBackFromPreview()" style="background:var(--brand-light);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--accent);cursor:pointer;">← Back</button>
+    <button onclick="editFromPreview()" style="background:var(--warn);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:#fff;cursor:pointer;">✏️ Edit Invoice</button>
+  </div>
   <div class="inv-preview-wrap">
     <div class="inv-preview-actions">
       <button class="act-btn print" onclick="printInvoice()">🖨 Print</button>
@@ -1370,6 +1387,8 @@ function saveSettings() {
 }
 
 // ---- NAVIGATION ----
+let previewSource = 'new'; // 'new' or 'history'
+
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1380,6 +1399,242 @@ function showScreen(name) {
   if (name === 'history') renderHistory();
   if (name === 'new') populatePriceSheetSelector();
   if (name === 'pricesheets') { showPriceSheetListView(); renderPriceSheetsList(); }
+}
+
+// ---- BACK FROM PREVIEW ----
+function goBackFromPreview() {
+  if (previewSource === 'history') {
+    showScreen('history');
+  } else {
+    showScreen('new');
+  }
+}
+
+// ---- EDIT INVOICE FROM PREVIEW ----
+function editFromPreview() {
+  if (!currentInvoice) return;
+  loadInvoiceIntoForm(currentInvoice);
+  showScreen('new');
+}
+
+// ---- VIEW INVOICE (from history card) ----
+function viewInvoice(invNo) {
+  previewSource = 'history';
+  currentInvoice = invoices.find(i => String(i.invNo) === String(invNo));
+  if (!currentInvoice) return;
+  showScreen('preview');
+  document.getElementById('nav-history').classList.add('active');
+  renderInvoiceHTML(currentInvoice);
+  updateSubmitBtn(null); // ensure btn stays as "Preview" mode
+}
+
+// ---- EDIT INVOICE FROM HISTORY ----
+function editInvoiceFromHistory(invNo) {
+  const inv = invoices.find(i => String(i.invNo) === String(invNo));
+  if (!inv) return;
+  loadInvoiceIntoForm(inv);
+  previewSource = 'history';
+  showScreen('new');
+}
+
+// ---- LOAD INVOICE INTO FORM ----
+function loadInvoiceIntoForm(inv) {
+  document.getElementById('f-invno').value = inv.invNo || '';
+  document.getElementById('f-invdt').value = inv.invDate || '';
+  document.getElementById('f-cname').value = inv.custName || '';
+  document.getElementById('f-addr').value = inv.address || '';
+  // State dropdown
+  const stateSelect = document.getElementById('f-state');
+  stateSelect.value = inv.state || '';
+  document.getElementById('f-statecode').value = inv.stateCode || '';
+  document.getElementById('f-gstin').value = inv.custGSTIN || '';
+  document.getElementById('f-bundles').value = inv.bundles || '';
+  document.getElementById('f-transport').value = inv.transport || '';
+  document.getElementById('f-lrno').value = inv.lrNo || '';
+  document.getElementById('f-supply-dt').value = inv.supplyDt || '';
+  document.getElementById('f-packing').value = inv.packing || 0;
+  document.getElementById('f-discount').value = inv.discountPct || 0;
+  // GST
+  document.getElementById('f-gst').value = inv.gstRate || 9;
+  document.getElementById('f-taxtype').value = inv.taxType || 'cgst_sgst';
+
+  // Clear items and rebuild
+  const container = document.getElementById('items-container');
+  container.innerHTML = '';
+  itemIndex = -1;
+  (inv.items || []).forEach((item, i) => {
+    itemIndex++;
+    const div = document.createElement('div');
+    div.className = 'item-row-form';
+    div.id = 'item-' + itemIndex;
+    const isOther = !PRICE_SHEET_SKELETON[item.desc] && !Object.keys(PRICE_SHEET_SKELETON).some(k => (item.desc||'').includes(k));
+    // Try to parse desc back into category/size/quality
+    let detectedCat = '', detectedSize = '', detectedQuality = '', detectedOther = '';
+    for (const cat of Object.keys(PRICE_SHEET_SKELETON)) {
+      if ((item.desc||'').includes(cat)) {
+        detectedCat = cat;
+        for (const sz of PRICE_SHEET_SKELETON[cat]) {
+          if ((item.desc||'').startsWith(sz)) { detectedSize = sz; break; }
+        }
+        for (const q of QUALITIES) {
+          if ((item.desc||'').includes(q)) { detectedQuality = q; break; }
+        }
+        break;
+      }
+    }
+    if (!detectedCat) detectedOther = item.desc || '';
+
+    const sizeOptions = detectedCat ? PRICE_SHEET_SKELETON[detectedCat].map(s => `<option value="${s}" ${s===detectedSize?'selected':''}>${s}</option>`).join('') : '';
+    const qualityOptions = QUALITIES.map(q => `<option value="${q}" ${q===detectedQuality?'selected':''}>${q}</option>`).join('');
+
+    div.innerHTML = `
+      <button class="remove-item" onclick="removeItem(${itemIndex})">✕</button>
+      <input type="hidden" class="i-lot" value="${item.lot||''}">
+      <input type="hidden" class="i-hsn" value="${item.hsn||'4817'}">
+      <div class="form-group">
+        <label>Item Type</label>
+        <select class="i-category" onchange="onCategoryChange(this)">
+          <option value="">— Select —</option>
+          <option value="Standard Envelope" ${detectedCat==='Standard Envelope'?'selected':''}>Standard Envelope</option>
+          <option value="2&quot; Box Envelope" ${detectedCat==='2" Box Envelope'?'selected':''}>2" Box Envelope</option>
+          <option value="other" ${!detectedCat?'selected':''}>Other (type manually)</option>
+        </select>
+      </div>
+      <div class="form-row i-dropdown-row" style="${!detectedCat?'display:none':''}">
+        <div class="form-group"><label>Size</label>
+          <select class="i-size" onchange="onSizeOrQualityChange(this)">
+            <option value="">— Select —</option>${sizeOptions}
+          </select>
+        </div>
+        <div class="form-group"><label>Quality</label>
+          <select class="i-quality" onchange="onSizeOrQualityChange(this)">
+            <option value="">— Select —</option>${qualityOptions}
+          </select>
+        </div>
+      </div>
+      <div class="form-group i-other-row" style="${!detectedCat?'':'display:none'}">
+        <label>Description of Goods</label>
+        <input type="text" class="i-desc-other" value="${detectedOther}" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))">
+      </div>
+      <input type="hidden" class="i-desc" value="${item.desc||''}">
+      <div class="form-row">
+        <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" value="${item.qty||''}" placeholder="0" oninput="calcItemTotal(this)"></div>
+        <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" inputmode="decimal" value="${item.rate||''}" placeholder="0.00" oninput="calcItemTotal(this)"></div>
+      </div>
+      <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;" value="${item.total ? '₹' + item.total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}"></div>`;
+    container.appendChild(div);
+  });
+  if (itemIndex < 0) { itemIndex = 0; addItem(); }
+  document.querySelectorAll('.remove-item').forEach(b => b.style.display = document.querySelectorAll('.item-row-form').length > 1 ? 'block' : 'none');
+  calcTotals();
+  updateSubmitBtn(inv.invNo);
+}
+
+// ---- UPDATE SUBMIT BTN LABEL ----
+function updateSubmitBtn(invNo) {
+  const btn = document.getElementById('submit-inv-btn');
+  if (!btn) return;
+  if (invNo) {
+    btn.textContent = `💾 Update Invoice #${invNo}`;
+  } else {
+    btn.innerHTML = '👁 Preview &amp; Print Invoice';
+  }
+  btn._editingInvNo = invNo || null;
+}
+
+// ---- CLEAR ENTIRE BILL ----
+function clearEntireBill() {
+  if (!confirm('Are you sure you want to clear this entire bill? All entered data will be lost.')) return;
+  document.getElementById('f-invno').value = '';
+  setTodayDate();
+  document.getElementById('f-cname').value = '';
+  document.getElementById('f-addr').value = '';
+  document.getElementById('f-state').value = '';
+  document.getElementById('f-statecode').value = '';
+  document.getElementById('f-gstin').value = '';
+  document.getElementById('f-bundles').value = '';
+  document.getElementById('f-transport').value = '';
+  document.getElementById('f-lrno').value = '';
+  document.getElementById('f-supply-dt').value = '';
+  document.getElementById('f-packing').value = '0';
+  document.getElementById('f-discount').value = '0';
+  document.getElementById('f-gst').value = '9';
+  document.getElementById('f-taxtype').value = 'cgst_sgst';
+  // Reset items to one empty row
+  const container = document.getElementById('items-container');
+  container.innerHTML = '';
+  itemIndex = 0;
+  const div = document.createElement('div');
+  div.className = 'item-row-form';
+  div.id = 'item-0';
+  div.innerHTML = `
+    <button class="remove-item" onclick="removeItem(0)" style="display:none">✕</button>
+    <input type="hidden" class="i-lot" value="">
+    <input type="hidden" class="i-hsn" value="4817">
+    <div class="form-group"><label>Item Type</label>
+      <select class="i-category" onchange="onCategoryChange(this)">
+        <option value="">— Select —</option>
+        <option value="Standard Envelope">Standard Envelope</option>
+        <option value="2&quot; Box Envelope">2" Box Envelope</option>
+        <option value="other">Other (type manually)</option>
+      </select>
+    </div>
+    <div class="form-row i-dropdown-row">
+      <div class="form-group"><label>Size</label><select class="i-size" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+      <div class="form-group"><label>Quality</label><select class="i-quality" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+    </div>
+    <div class="form-group i-other-row" style="display:none"><label>Description of Goods</label><input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))"></div>
+    <input type="hidden" class="i-desc">
+    <div class="form-row">
+      <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" placeholder="2100" oninput="calcItemTotal(this)"></div>
+      <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" inputmode="decimal" placeholder="4.35" oninput="calcItemTotal(this)"></div>
+    </div>
+    <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" placeholder="Auto-calculated" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;"></div>`;
+  container.appendChild(div);
+  calcTotals();
+  updateSubmitBtn(null);
+  previewSource = 'new';
+  showToast('Bill cleared ✓');
+}
+
+// ---- STATE DROPDOWN AUTO-FILL ----
+const STATE_CODES = {
+  'Tamil Nadu': '33',
+  'Karnataka': '29',
+  'Andhra Pradesh': '37',
+  'Telangana': '36',
+  'Kerala': '32',
+  'Puducherry': '34',
+  'Lakshadweep': '31'
+};
+
+function onStateChange(state) {
+  const code = STATE_CODES[state] || '';
+  document.getElementById('f-statecode').value = code;
+  // Auto-flip tax type
+  const taxTypeEl = document.getElementById('f-taxtype');
+  if (code === '33') {
+    taxTypeEl.value = 'cgst_sgst';
+  } else if (code) {
+    taxTypeEl.value = 'igst';
+  }
+  calcTotals();
+}
+
+// ---- GSTIN REVERSE READER ----
+function onGstinInput(val) {
+  const cleaned = val.replace(/\s/g, '');
+  if (cleaned.length >= 2) {
+    const code = cleaned.substring(0, 2);
+    const stateEntry = Object.entries(STATE_CODES).find(([, c]) => c === code);
+    if (stateEntry) {
+      document.getElementById('f-state').value = stateEntry[0];
+      document.getElementById('f-statecode').value = code;
+      const taxTypeEl = document.getElementById('f-taxtype');
+      taxTypeEl.value = code === '33' ? 'cgst_sgst' : 'igst';
+      calcTotals();
+    }
+  }
 }
 
 // ---- LOCAL INVOICE STORAGE ----
@@ -1502,17 +1757,22 @@ function renderHistory() {
 }
 
 function invCard(inv) {
-  return `<div class="inv-card" onclick="openInvoice('${inv.invNo}')">
-    <div class="inv-main">
-      <div class="inv-num">Invoice #${inv.invNo}</div>
-      <div class="inv-name">${inv.custName || '—'}</div>
-      <div class="inv-date">${formatDateDMY(inv.invDate) || ''}</div>
+  return `<div class="inv-card" style="flex-direction:column;align-items:stretch;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="inv-main">
+        <div class="inv-num">Invoice #${inv.invNo}</div>
+        <div class="inv-name">${inv.custName || '—'}</div>
+        <div class="inv-date">${formatDateDMY(inv.invDate) || ''}</div>
+      </div>
+      <div class="inv-amount">
+        <div class="inv-total">₹${(inv.total||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="inv-items">${(inv.items||[]).length} item(s)</div>
+      </div>
     </div>
-    <div class="inv-amount">
-      <div class="inv-total">₹${(inv.total||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
-      <div class="inv-items">${(inv.items||[]).length} item(s)</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="viewInvoice('${inv.invNo}')" style="flex:1;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👁 View / Print</button>
+      <button onclick="editInvoiceFromHistory('${inv.invNo}')" style="flex:1;padding:9px;background:var(--brand-light);color:var(--accent);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">✏️ Edit Invoice</button>
     </div>
-    <span class="inv-arrow">›</span>
   </div>`;
 }
 
@@ -1525,6 +1785,7 @@ function setFilter(mode, el) {
 }
 
 function openInvoice(invNo) {
+  previewSource = 'history';
   currentInvoice = invoices.find(i => i.invNo == invNo);
   if (!currentInvoice) return;
   showScreen('preview');
@@ -1573,13 +1834,14 @@ function addItem() {
     </div>
     <input type="hidden" class="i-desc">
     <div class="form-row">
-      <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" placeholder="0" oninput="calcItemTotal(this)"></div>
-      <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" placeholder="0.00" oninput="calcItemTotal(this)"></div>
+      <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" placeholder="0" oninput="calcItemTotal(this)"></div>
+      <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" inputmode="decimal" placeholder="0.00" oninput="calcItemTotal(this)"></div>
     </div>
     <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;"></div>`;
   container.appendChild(div);
   // Show remove buttons
   document.querySelectorAll('.remove-item').forEach(b => b.style.display = 'block');
+  updateItemsQtyBadge();
 }
 
 function removeItem(idx) {
