@@ -31,8 +31,6 @@
   .topbar { background: var(--brand); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
   .topbar h1 { color: #fff; font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
   .topbar .sub { color: rgba(255,255,255,0.6); font-size: 11px; margin-top: 1px; }
-  .topbar .sync-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 7px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  .sync-btn:active { background: rgba(255,255,255,0.25); }
 
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; }
   .nav-btn { flex: 1; padding: 10px 0 8px; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 11px; font-weight: 500; }
@@ -42,13 +40,6 @@
   /* ---- SCREENS ---- */
   .screen { display: none; padding: 16px 16px 88px; }
   .screen.active { display: block; }
-
-  /* ---- SETUP BANNER ---- */
-  .setup-card { background: #fffbeb; border: 1px solid #fcd34d; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
-  .setup-card h3 { font-size: 14px; font-weight: 600; color: #92400e; margin-bottom: 4px; }
-  .setup-card p { font-size: 12px; color: #78350f; line-height: 1.5; }
-  .setup-card input { width: 100%; margin-top: 8px; padding: 9px 12px; border: 1px solid #fcd34d; border-radius: 8px; font-size: 13px; background: #fff; }
-  .setup-card button { margin-top: 8px; padding: 9px 18px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600; }
 
   /* ---- STAT CARDS ---- */
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
@@ -110,9 +101,9 @@
   .inv-receiver td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; }
   .inv-meta { flex: 1; padding: 7px 8px; font-size: 10.5px; }
   .inv-meta table { width: 100%; border-collapse: collapse; }
-  .inv-meta td { padding: 1.5px 0; vertical-align: top; }
+  .inv-meta td { padding: 1.5px 0; vertical-align: middle; }
   .inv-meta td:first-child { white-space: nowrap; font-weight: 600; min-width: 90px; }
-  .inv-meta td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; }
+  .inv-meta td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; vertical-align: middle; }
   .inv-meta td:last-child { text-align: right; }
   .items-table { width: 100%; border-collapse: collapse; border-bottom: 1px solid #333; }
   .items-table th { background: #f5f5f5; padding: 5px 6px; font-size: 10px; text-align: center; border-right: 1px solid #333; border-bottom: 1px solid #333; font-weight: 700; }
@@ -211,19 +202,10 @@
     <div class="topbar h1" style="color:#fff;font-size:17px;font-weight:600;">🏢 Jaya Enterprises</div>
     <div class="sub">Tax Invoice Manager</div>
   </div>
-  <button class="sync-btn" onclick="syncData()">⟳ Sync</button>
 </div>
 
 <!-- SCREENS -->
 <div id="screen-home" class="screen active">
-  <div id="setup-banner" class="setup-card" style="display:none">
-    <h3>⚙️ Setup required</h3>
-    <p>Paste your Google Sheets ID to connect your invoice data. Find it in the Sheet URL between /d/ and /edit</p>
-    <input type="text" id="sheet-id-input" placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
-    <input type="text" id="api-key-input" placeholder="Google API Key" style="margin-top:6px">
-    <button onclick="saveConfig()">Save & Connect</button>
-  </div>
-
   <div class="stats">
     <div class="stat">
       <div class="label">Total invoices</div>
@@ -247,13 +229,13 @@
       <span class="qicon">📋</span>
       <span>Bill History</span>
     </button>
-    <button class="quick-btn" onclick="openGoogleForm()">
-      <span class="qicon">📝</span>
-      <span>Open Form</span>
-    </button>
     <button class="quick-btn" onclick="showScreen('settings')">
       <span class="qicon">⚙️</span>
       <span>Settings</span>
+    </button>
+    <button class="quick-btn" onclick="exportData()">
+      <span class="qicon">⬇️</span>
+      <span>Export Backup</span>
     </button>
   </div>
 
@@ -340,9 +322,33 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Description of Goods</label>
-          <input type="text" class="i-desc" placeholder="12*10 SL Envelopes">
+          <label>Item Type</label>
+          <select class="i-category" onchange="onCategoryChange(this)">
+            <option value="">— Select —</option>
+            <option value="Standard Envelope">Standard Envelope</option>
+            <option value="2&quot; Box Envelope">2" Box Envelope</option>
+            <option value="other">Other (type manually)</option>
+          </select>
         </div>
+        <div class="form-row i-dropdown-row">
+          <div class="form-group">
+            <label>Size</label>
+            <select class="i-size" onchange="onSizeOrQualityChange(this)">
+              <option value="">— Select —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quality</label>
+            <select class="i-quality" onchange="onSizeOrQualityChange(this)">
+              <option value="">— Select —</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group i-other-row" style="display:none">
+          <label>Description of Goods</label>
+          <input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))">
+        </div>
+        <input type="hidden" class="i-desc">
         <div class="form-row">
           <div class="form-group">
             <label>Quantity</label>
@@ -432,17 +438,17 @@
 
 <div id="screen-settings" class="screen">
   <div class="settings-section">
-    <h3>Google Sheets Connection</h3>
+    <h3>Data Backup</h3>
     <div class="setting-row">
       <div>
-        <div class="setting-label">Sheet ID</div>
-        <div class="setting-sub">From your Google Sheet URL</div>
+        <div class="setting-label">Your invoices</div>
+        <div class="setting-sub">Stored on this device only</div>
       </div>
     </div>
-    <div style="padding:0 16px 12px">
-      <input class="setting-input" type="text" id="cfg-sheetid" placeholder="Sheet ID" style="width:100%;margin-bottom:8px">
-      <input class="setting-input" type="text" id="cfg-apikey" placeholder="Google API Key" style="width:100%;margin-bottom:8px">
-      <input class="setting-input" type="text" id="cfg-formurl" placeholder="Google Form URL (optional)" style="width:100%">
+    <div style="padding:0 16px 12px;display:flex;gap:10px">
+      <button class="save-btn" style="flex:1;margin:0" onclick="exportData()">⬇️ Export Backup</button>
+      <button class="save-btn" style="flex:1;margin:0;background:var(--brand-light);color:var(--accent)" onclick="document.getElementById('import-file-input').click()">⬆️ Import Backup</button>
+      <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="importData(this.files[0])">
     </div>
   </div>
   <div class="settings-section">
@@ -501,7 +507,6 @@ let currentInvoice = null;
 let itemCount = 1;
 let filterMode = 'all';
 let config = {
-  sheetId: '', apiKey: '', formUrl: '',
   coName: 'JAYA ENTERPRISES',
   addr1: '68/6 - Middle Street, Chatrapatti - 626 102',
   addr2: '(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu',
@@ -510,14 +515,56 @@ let config = {
   acno: '67182959710', ifsc: 'SBIN0070819'
 };
 
+// ---- PRICE LIST ----
+// qualities are the column headers; each size row gives a rate per quality (null = not offered)
+const QUALITIES = ['REGULAR', 'SONAL', 'FINE', 'SUPER FINE', 'POLYNET'];
+let priceList = {
+  'Standard Envelope': [
+    { size: '20x16',   rates: [8.76, 9.79, 11.26, 12.70, 15.80] },
+    { size: '18x14',   rates: [7.14, 7.99, 9.68, 9.90, 11.89] },
+    { size: '16x12',   rates: [5.70, 6.18, 7.29, 7.84, 8.99] },
+    { size: '15x11',   rates: [5.00, 5.48, 6.55, 6.81, 8.05] },
+    { size: '14x10',   rates: [4.23, 4.93, 5.70, 6.04, 6.92] },
+    { size: '14x10.5', rates: [4.34, 4.97, 5.78, 6.18, null] },
+    { size: '12x10',   rates: [3.68, 4.23, 5.00, 5.23, 5.94] },
+    { size: '12x6',    rates: [2.50, 2.87, 3.20, 3.53, 3.75] },
+    { size: '12x5',    rates: [1.95, 2.24, 2.61, 2.80, 3.32] },
+    { size: '10.5x8',  rates: [2.72, 3.09, 3.42, 3.86, null] },
+    { size: '10x8',    rates: [2.69, 3.05, 3.39, 3.75, 4.26] },
+    { size: '10x7',    rates: [2.50, 2.87, 3.16, 3.53, null] },
+    { size: '9x6',     rates: [1.95, 2.24, 2.43, 2.87, 3.21] },
+    { size: '11x5',    rates: [1.95, 2.24, 2.43, 2.87, 3.21] },
+    { size: '10.5x4.5',rates: [1.95, 2.24, 2.43, 2.87, null] },
+    { size: '9.5x4.5', rates: [1.88, 2.13, 2.28, 2.69, 2.58] },
+    { size: '7x5',     rates: [null, null, null, null, 2.19] },
+    { size: '7x4',     rates: [null, null, null, null, 2.15] },
+  ],
+  '2" Box Envelope': [
+    { size: '20x16', rates: [12.36, 13.40, 15.60, 16.85, null] },
+    { size: '18x14', rates: [10.97, 12.14, 13.06, 14.72, 13.96] },
+    { size: '16x12', rates: [9.09, 9.68, 10.82, 11.67, 12.00] },
+    { size: '15x11', rates: [8.57, 9.13, 10.23, 11.11, null] },
+    { size: '14x10', rates: [7.88, 8.54, 9.38, 10.45, 10.79] },
+    { size: '12x10', rates: [7.10, 7.88, 8.61, 9.42, 9.97] },
+  ]
+};
+
+function getRate(category, size, quality) {
+  const cat = priceList[category];
+  if (!cat) return null;
+  const row = cat.find(r => r.size === size);
+  if (!row) return null;
+  const qIdx = QUALITIES.indexOf(quality);
+  if (qIdx === -1) return null;
+  const rate = row.rates[qIdx];
+  return (rate === null || rate === undefined) ? null : rate;
+}
+
 // ---- LOAD CONFIG ----
 function loadConfig() {
   try {
     const saved = localStorage.getItem('jayaConfig');
     if (saved) config = { ...config, ...JSON.parse(saved) };
-    document.getElementById('cfg-sheetid').value = config.sheetId || '';
-    document.getElementById('cfg-apikey').value = config.apiKey || '';
-    document.getElementById('cfg-formurl').value = config.formUrl || '';
     document.getElementById('cfg-coname').value = config.coName || '';
     document.getElementById('cfg-addr1').value = config.addr1 || '';
     document.getElementById('cfg-addr2').value = config.addr2 || '';
@@ -526,23 +573,10 @@ function loadConfig() {
     document.getElementById('cfg-branch').value = config.branch || '';
     document.getElementById('cfg-acno').value = config.acno || '';
     document.getElementById('cfg-ifsc').value = config.ifsc || '';
-    if (!config.sheetId) document.getElementById('setup-banner').style.display = 'block';
   } catch(e) {}
 }
 
-function saveConfig() {
-  config.sheetId = document.getElementById('sheet-id-input').value.trim();
-  config.apiKey = document.getElementById('api-key-input').value.trim();
-  localStorage.setItem('jayaConfig', JSON.stringify(config));
-  document.getElementById('setup-banner').style.display = 'none';
-  showToast('Connected! Syncing…');
-  syncData();
-}
-
 function saveSettings() {
-  config.sheetId = document.getElementById('cfg-sheetid').value.trim();
-  config.apiKey = document.getElementById('cfg-apikey').value.trim();
-  config.formUrl = document.getElementById('cfg-formurl').value.trim();
   config.coName = document.getElementById('cfg-coname').value.trim();
   config.addr1 = document.getElementById('cfg-addr1').value.trim();
   config.addr2 = document.getElementById('cfg-addr2').value.trim();
@@ -566,74 +600,13 @@ function showScreen(name) {
   if (name === 'history') renderHistory();
 }
 
-// ---- SYNC FROM GOOGLE SHEETS ----
-async function syncData() {
-  if (!config.sheetId || !config.apiKey) {
-    document.getElementById('setup-banner').style.display = 'block';
-    showToast('Please set up Google Sheets first');
-    return;
-  }
-  showToast('Syncing…');
+// ---- LOCAL INVOICE STORAGE ----
+function saveInvoices() {
   try {
-    // Sheet range: assumes data sheet named "Invoices" with headers in row 1
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/Invoices!A2:Z1000?key=${config.apiKey}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.error) { showToast('Sync error: ' + data.error.message); return; }
-    const rows = data.values || [];
-    invoices = rows.map(r => parseSheetRow(r)).filter(i => i.invNo);
-    // Cache locally
     localStorage.setItem('jayaInvoices', JSON.stringify(invoices));
-    renderStats();
-    renderRecent();
-    renderHistory();
-    showToast(`Synced ${invoices.length} invoices ✓`);
   } catch(e) {
-    // Try local cache
-    loadCachedInvoices();
-    showToast('Sync failed — showing cached data');
+    showToast('Could not save invoice — storage may be full');
   }
-}
-
-function parseSheetRow(r) {
-  // Expected column order from the Google Form:
-  // 0:Timestamp 1:InvNo 2:InvDate 3:CustomerName 4:Address 5:State 6:StateCode 7:CustGSTIN
-  // 8:Bundles 9:Transport 10:LRNo 11:SupplyDateTime
-  // 12:Lot1 13:HSN1 14:Desc1 15:Qty1 16:Rate1
-  // 17:Lot2 18:HSN2 19:Desc2 20:Qty2 21:Rate2
-  // 22:Lot3 23:HSN3 24:Desc3 25:Qty3 26:Rate3
-  // 27:PackingCharges 28:DiscountPercent 29:GSTRate 30:TaxType (cgst_sgst|igst)
-  const items = [];
-  for (let i = 0; i < 5; i++) {
-    const base = 12 + i * 5;
-    if (r[base + 2]) {
-      const qty = parseFloat(r[base + 3]) || 0;
-      const rate = parseFloat(r[base + 4]) || 0;
-      items.push({ lot: r[base] || '', hsn: r[base+1] || '', desc: r[base+2] || '', qty, rate, total: qty * rate });
-    }
-  }
-  const subtotal = items.reduce((s, i) => s + i.total, 0);
-  const packing = parseFloat(r[27]) || 0;
-  const discountPct = parseFloat(r[28]) || 0;
-  const grossAmount = subtotal + packing;
-  const discountAmt = grossAmount * discountPct / 100;
-  const taxable = grossAmount - discountAmt;
-  const gstRate = parseFloat(r[29]) || 9;
-  const taxType = (r[30] || 'cgst_sgst').trim();
-  let sgst = 0, cgst = 0, igst = 0;
-  if (taxType === 'igst') {
-    igst = taxable * (gstRate * 2) / 100;
-  } else {
-    sgst = taxable * gstRate / 100;
-    cgst = taxable * gstRate / 100;
-  }
-  const total = taxable + sgst + cgst + igst;
-  return {
-    invNo: r[1] || '', invDate: r[2] || '', timestamp: r[0] || '',
-    custName: r[3] || '', address: r[4] || '', state: r[5] || '', stateCode: r[6] || '', custGSTIN: r[7] || '',
-    bundles: r[8] || '', transport: r[9] || '', lrNo: r[10] || '', supplyDt: r[11] || '',
-    items, packing, discountPct, discountAmt, gstRate, taxType, subtotal, taxable, sgst, cgst, igst, total
-  };
 }
 
 function loadCachedInvoices() {
@@ -641,6 +614,45 @@ function loadCachedInvoices() {
     const c = localStorage.getItem('jayaInvoices');
     if (c) { invoices = JSON.parse(c); renderStats(); renderRecent(); renderHistory(); }
   } catch(e) {}
+}
+
+// ---- BACKUP: EXPORT / IMPORT ----
+function exportData() {
+  if (!invoices.length) { showToast('No invoices to export yet'); return; }
+  const payload = { exportedAt: new Date().toISOString(), config, invoices };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `Jaya_Invoices_Backup_${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded ✓');
+}
+
+function importData(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      const incoming = Array.isArray(payload) ? payload : payload.invoices;
+      if (!Array.isArray(incoming)) { showToast('That file doesn\'t look like a valid backup'); return; }
+      // Merge by invoice number, incoming wins on conflict
+      const byNo = new Map(invoices.map(i => [String(i.invNo), i]));
+      incoming.forEach(i => { if (i && i.invNo) byNo.set(String(i.invNo), i); });
+      invoices = Array.from(byNo.values());
+      saveInvoices();
+      renderStats(); renderRecent(); renderHistory();
+      showToast(`Imported ✓ (${invoices.length} invoices total)`);
+    } catch(err) {
+      showToast('Could not read that backup file');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ---- RENDER STATS ----
@@ -752,7 +764,34 @@ function addItem() {
       <div class="form-group"><label>Lot No</label><input type="text" class="i-lot" placeholder="4817"></div>
       <div class="form-group"><label>HSN Code</label><input type="text" class="i-hsn" placeholder="4817"></div>
     </div>
-    <div class="form-group"><label>Description</label><input type="text" class="i-desc" placeholder="Description of goods"></div>
+    <div class="form-group">
+      <label>Item Type</label>
+      <select class="i-category" onchange="onCategoryChange(this)">
+        <option value="">— Select —</option>
+        <option value="Standard Envelope">Standard Envelope</option>
+        <option value="2&quot; Box Envelope">2" Box Envelope</option>
+        <option value="other">Other (type manually)</option>
+      </select>
+    </div>
+    <div class="form-row i-dropdown-row">
+      <div class="form-group">
+        <label>Size</label>
+        <select class="i-size" onchange="onSizeOrQualityChange(this)">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Quality</label>
+        <select class="i-quality" onchange="onSizeOrQualityChange(this)">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group i-other-row" style="display:none">
+      <label>Description of Goods</label>
+      <input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))">
+    </div>
+    <input type="hidden" class="i-desc">
     <div class="form-row">
       <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" placeholder="0" oninput="calcItemTotal(this)"></div>
       <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" placeholder="0.00" oninput="calcItemTotal(this)"></div>
@@ -769,6 +808,69 @@ function removeItem(idx) {
   calcTotals();
   if (document.querySelectorAll('.item-row-form').length === 1)
     document.querySelectorAll('.remove-item').forEach(b => b.style.display = 'none');
+}
+
+// ---- ITEM TYPE / SIZE / QUALITY DROPDOWNS ----
+function onCategoryChange(select) {
+  const row = select.closest('.item-row-form');
+  const category = select.value;
+  const sizeSelect = row.querySelector('.i-size');
+  const qualitySelect = row.querySelector('.i-quality');
+  const otherRow = row.querySelector('.i-other-row');
+  const dropdownRow = row.querySelector('.i-dropdown-row');
+  const otherInput = row.querySelector('.i-desc-other');
+
+  if (category === 'other') {
+    dropdownRow.style.display = 'none';
+    otherRow.style.display = 'block';
+    sizeSelect.innerHTML = '<option value="">— Select —</option>';
+    qualitySelect.innerHTML = '<option value="">— Select —</option>';
+    otherInput.focus();
+  } else {
+    dropdownRow.style.display = 'grid';
+    otherRow.style.display = 'none';
+    // Populate sizes available for this category
+    const sizes = (priceList[category] || []).map(r => r.size);
+    sizeSelect.innerHTML = '<option value="">— Select —</option>' + sizes.map(s => `<option value="${s}">${s}</option>`).join('');
+    // Quality list is the same for every category, but trim it to ones with at least one rate
+    qualitySelect.innerHTML = '<option value="">— Select —</option>' + QUALITIES.map(q => `<option value="${q}">${q}</option>`).join('');
+  }
+  syncItemRow(row);
+}
+
+function onSizeOrQualityChange(select) {
+  const row = select.closest('.item-row-form');
+  const category = row.querySelector('.i-category').value;
+  const size = row.querySelector('.i-size').value;
+  const quality = row.querySelector('.i-quality').value;
+  const rateInput = row.querySelector('.i-rate');
+
+  if (category && category !== 'other' && size && quality) {
+    const rate = getRate(category, size, quality);
+    if (rate === null) {
+      showToast(`${size} isn't offered in ${quality} — enter the rate manually`);
+      rateInput.value = '';
+    } else {
+      rateInput.value = rate.toFixed(2);
+    }
+    calcItemTotal(rateInput);
+  }
+  syncItemRow(row);
+}
+
+// Keeps the hidden .i-desc field (used by totals/preview/print) up to date
+// with whatever the user picked or typed.
+function syncItemRow(row) {
+  const category = row.querySelector('.i-category').value;
+  const descHidden = row.querySelector('.i-desc');
+  if (category === 'other') {
+    descHidden.value = row.querySelector('.i-desc-other').value;
+  } else {
+    const size = row.querySelector('.i-size').value;
+    const quality = row.querySelector('.i-quality').value;
+    const parts = [size, category, quality].filter(Boolean);
+    descHidden.value = parts.join(' ');
+  }
 }
 
 function calcItemTotal(input) {
@@ -833,6 +935,7 @@ function calcTotals() {
 function previewInvoice() {
   const items = [];
   document.querySelectorAll('.item-row-form').forEach(row => {
+    syncItemRow(row);
     const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
     const rate = parseFloat(row.querySelector('.i-rate').value) || 0;
     items.push({
@@ -858,8 +961,10 @@ function previewInvoice() {
     cgst = taxable * gstRate / 100;
   }
   const total = taxable + sgst + cgst + igst;
+  const invNo = document.getElementById('f-invno').value.trim();
+  if (!invNo) { showToast('Please enter an invoice number'); return; }
   currentInvoice = {
-    invNo: document.getElementById('f-invno').value,
+    invNo,
     invDate: document.getElementById('f-invdt').value,
     custName: document.getElementById('f-cname').value,
     address: document.getElementById('f-addr').value,
@@ -872,6 +977,11 @@ function previewInvoice() {
     supplyDt: document.getElementById('f-supply-dt').value,
     items, packing, discountPct, discountAmt, gstRate, taxType, subtotal, taxable, sgst, cgst, igst, total
   };
+  // Save (or update) this invoice in the local list
+  const idx = invoices.findIndex(i => String(i.invNo) === String(invNo));
+  if (idx >= 0) invoices[idx] = currentInvoice; else invoices.push(currentInvoice);
+  saveInvoices();
+  renderStats();
   showScreen('preview');
   renderInvoiceHTML(currentInvoice);
 }
@@ -1023,9 +1133,11 @@ function printInvoice() {
     .inv-receiver{flex:1.2;padding:6px 8px;border-right:1px solid #333;font-size:9.5px}
     .inv-receiver .section-hdr{font-size:9px;font-weight:700;margin-bottom:4px;text-decoration:underline}
     .inv-receiver table,.inv-meta table{width:100%;border-collapse:collapse}
-    .inv-receiver td,.inv-meta td{padding:1.5px 0;vertical-align:top}
+    .inv-receiver td{padding:1.5px 0;vertical-align:top}
+    .inv-meta td{padding:1.5px 0;vertical-align:middle}
     .inv-receiver td:first-child{white-space:nowrap;min-width:65px;font-weight:600}
-    .inv-receiver td.colon,.inv-meta td.colon{white-space:nowrap;text-align:center;width:12px;padding:1.5px 2px;font-weight:600}
+    .inv-receiver td.colon{white-space:nowrap;text-align:center;width:12px;padding:1.5px 2px;font-weight:600;vertical-align:top}
+    .inv-meta td.colon{white-space:nowrap;text-align:center;width:12px;padding:1.5px 2px;font-weight:600;vertical-align:middle}
     .inv-meta{flex:1;padding:6px 8px;font-size:9.5px}
     .inv-meta td:first-child{white-space:nowrap;font-weight:600;min-width:85px}
     .inv-meta td:last-child{text-align:right}
@@ -1126,11 +1238,6 @@ function savePDF() {
     });
 }
 
-function openGoogleForm() {
-  if (config.formUrl) window.open(config.formUrl, '_blank');
-  else showToast('Set your Google Form URL in Settings first');
-}
-
 // ---- TOAST ----
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -1154,8 +1261,8 @@ window.onload = () => {
   setTodayDate();
   loadCachedInvoices();
   calcTotals();
-  if (invoices.length) { renderStats(); renderRecent(); }
-  else if (config.sheetId && config.apiKey) syncData();
+  renderStats();
+  renderRecent();
 };
 </script>
 </body>
