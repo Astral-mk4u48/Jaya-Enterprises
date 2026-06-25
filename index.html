@@ -1011,8 +1011,9 @@ function printInvoice() {
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice #${currentInvoice?.invNo||''} - ${config.coName}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%}
     body{font-family:Arial,sans-serif;font-size:10px;padding:0}
-    .inv-box{border:1.5px solid #333}
+    .inv-box{width:194mm;margin:0 auto;border:1.5px solid #333}
     .inv-header{text-align:center;padding:8px 6px 6px;border-bottom:1px solid #333}
     .inv-header .co-name{font-size:15px;font-weight:700;letter-spacing:0.5px}
     .inv-header .co-addr{font-size:9px;line-height:1.6;margin-top:2px}
