@@ -111,8 +111,8 @@
   .items-table td { padding: 4px 6px; font-size: 10px; text-align: center; border-right: 1px solid #333; vertical-align: top; }
   .items-table td.desc { text-align: left; }
   .items-table td:last-child { border-right: none; }
-  .items-table tr.item-row td { border-bottom: 0.5px solid #eee; }
-  .items-table tr.empty-row td { height: 18px; border-bottom: 0.5px solid #f0f0f0; }
+  .items-table tr.item-row td { height: 28.5px; border-bottom: 0.5px solid #eee; }
+  .items-table tr.empty-row td { height: 28.5px; border-bottom: 0.5px solid #f0f0f0; }
   .inv-footer { display: flex; border-bottom: 1px solid #333; }
   .inv-words { flex: 1.2; padding: 7px 8px; border-right: 1px solid #333; font-size: 10px; }
   .inv-words .words-label { font-weight: 700; margin-bottom: 3px; }
@@ -1928,6 +1928,25 @@ function calcItemTotal(input) {
   calcTotals();
 }
 
+// Updates the "Total Items: X | Total Qty: Y" badge above the bill.
+// Items = number of item rows currently in the form, Qty = sum of their quantities.
+function updateItemsQtyBadge() {
+  const rows = document.querySelectorAll('.item-row-form');
+  let totalItems = 0;
+  let totalQty = 0;
+  rows.forEach(row => {
+    const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
+    // Only count a row as a real "item" once it actually has a quantity entered,
+    // so an empty freshly-added row doesn't inflate the item count.
+    if (qty > 0) {
+      totalItems++;
+      totalQty += qty;
+    }
+  });
+  const badge = document.getElementById('items-qty-badge');
+  if (badge) badge.textContent = `Total Items: ${totalItems} | Total Qty: ${totalQty}`;
+}
+
 function calcTotals() {
   let subtotal = 0;
   document.querySelectorAll('.item-row-form').forEach(row => {
@@ -1977,6 +1996,7 @@ function calcTotals() {
     document.getElementById('calc-cgst').textContent = fmt(cgst);
   }
   document.getElementById('calc-total').textContent = fmt(total);
+  updateItemsQtyBadge();
 }
 
 function previewInvoice() {
@@ -2036,7 +2056,7 @@ function previewInvoice() {
 // ---- INVOICE HTML RENDERER ----
 function renderInvoiceHTML(inv) {
   const fmt = v => v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const emptyRows = Math.max(0, 6 - (inv.items||[]).length);
+  const emptyRows = Math.max(0, 20 - (inv.items||[]).length);
   let itemsHTML = (inv.items||[]).map(item => `
     <tr class="item-row">
       <td>${item.lot||''}</td>
@@ -2194,8 +2214,8 @@ function printInvoice() {
     .items-table td{padding:3px 5px;font-size:9px;text-align:center;border-right:1px solid #333;vertical-align:top}
     .items-table td.desc{text-align:left}
     .items-table td:last-child{border-right:none}
-    .items-table tr.item-row td{border-bottom:0.5px solid #eee}
-    .items-table tr.empty-row td{height:16px;border-bottom:0.5px solid #f0f0f0}
+    .items-table tr.item-row td{height:28.5px;border-bottom:0.5px solid #eee}
+    .items-table tr.empty-row td{height:28.5px;border-bottom:0.5px solid #f0f0f0}
     .inv-footer{display:flex;border-bottom:1px solid #333}
     .inv-words{flex:1.2;padding:6px 8px;border-right:1px solid #333;font-size:9px}
     .inv-words .words-label{font-weight:700;margin-bottom:3px}
