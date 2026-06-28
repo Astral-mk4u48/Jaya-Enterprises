@@ -172,6 +172,35 @@
   .submit-inv-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 6px; }
   .submit-inv-btn:active { opacity: 0.85; }
 
+  /* ---- CUSTOMER AUTOCOMPLETE ---- */
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1.5px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(37,99,168,0.18);
+    z-index: 200;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+  }
+  .autocomplete-dropdown.open { display: block; }
+  .ac-item {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:active, .ac-item.highlighted { background: var(--brand-light); }
+  .ac-item .ac-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .ac-item .ac-detail { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ac-item .ac-match { color: var(--accent); }
+  .ac-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
+
   @media print {
     body > *:not(#print-area) { display: none !important; }
     #print-area { display: block !important; }
@@ -187,12 +216,8 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/pwabuilder-sw.js')
-        .then((reg) => {
-          console.log('Service Worker registered successfully!', reg.scope);
-        })
-        .catch((err) => {
-          console.error('Service Worker registration failed:', err);
-        });
+        .then((reg) => { console.log('Service Worker registered!', reg.scope); })
+        .catch((err) => { console.error('SW reg failed:', err); });
     });
   }
 </script>
@@ -283,14 +308,31 @@
 
   <div class="form-section">
     <h3>👤 Receiver Details</h3>
+
+    <!-- Customer Name with Autocomplete -->
     <div class="form-group">
       <label>Customer Name</label>
-      <input type="text" id="f-cname" placeholder="Newlips Book Shop">
+      <div class="autocomplete-wrap">
+        <input type="text" id="f-cname" placeholder="Type to search customers…" autocomplete="off"
+          oninput="onCustomerNameInput(this.value)"
+          onkeydown="onCustomerNameKeydown(event)"
+          onfocus="onCustomerNameInput(this.value)"
+          onblur="scheduleCloseDropdown()">
+        <div class="autocomplete-dropdown" id="customer-dropdown"></div>
+      </div>
     </div>
+
     <div class="form-group">
       <label>Address</label>
       <textarea id="f-addr" rows="2" placeholder="35, 1st Floor, Printhavan Salai, Contenment, Trichy - 1"></textarea>
     </div>
+
+    <!-- Phone Number — above State -->
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" id="f-phone" placeholder="9842418340">
+    </div>
+
     <div class="form-row">
       <div class="form-group">
         <label>State</label>
@@ -591,7 +633,7 @@
   </div>
 </div>
 
-<!-- SAVE PRICE SHEET MODAL (for edit: save vs save as copy) -->
+<!-- SAVE PRICE SHEET MODAL -->
 <div id="ps-save-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
     <div style="font-size:16px;font-weight:700;color:var(--brand);margin-bottom:14px">💾 Save Price Sheet</div>
@@ -610,7 +652,166 @@
 <div id="toast"></div>
 
 <script>
-// ---- STATE ----
+// ================================================================
+// CUSTOMER DATABASE — from PDF
+// ================================================================
+const CUSTOMER_DB = [
+  { name: 'Anna Paper Industry', address: 'Sahaya Road, Elthuruth, Laloor, Thrissur - 680 611', state: 'Kerala', stateCode: '32', gstin: '32AHXPJ1745R1ZL', phone: '9447240450' },
+  { name: 'PRANAVAM', address: '64/414, Mathi Majooran Road, Near Old Railway Station, Ernakulam, Kochi - 682018', state: 'Kerala', stateCode: '32', gstin: '32CQHPM9062M1ZD', phone: '9847991972' },
+  { name: 'Newlips Book Shop', address: '35, 1st Floor, Printhavan Salai, Contenment, Trichy - 1', state: 'Tamil Nadu', stateCode: '33', gstin: '33AONPK3546G1ZX', phone: '9842418340' },
+  { name: 'Prabhat Industries', address: 'Hagem Complex, Paikkadda Road, Kollam', state: 'Kerala', stateCode: '32', gstin: '32AACFP4680R1ZR', phone: '9400594050' },
+  { name: 'FRANGIES ASSOCIATES', address: '73/160, Popular Road, Vaduthala P.O, Ernakulam', state: 'Kerala', stateCode: '32', gstin: '32AAGFF7623N1Z8', phone: '7012014255' },
+  { name: 'MURUGESH PAPER TRADERS', address: '67/10712, Sreeshagriha Sankulam, T.D. West Road, T.D. West End, Ernakulam, Kochi - 682 035', state: 'Kerala', stateCode: '32', gstin: '32ABEFM6535D1ZL', phone: '9846080768' },
+  { name: 'Best Paper Mart', address: 'Broadway Lane, Mather Bazar, Ernakulam, Kochi - 682 031', state: 'Kerala', stateCode: '32', gstin: '32AAIFB7149P1Z1', phone: '8129293040' },
+  { name: 'Kallupurackal Paper Mart', address: 'Kallupurackal Building, Hozhichant Road, Old Market, Kottayam', state: 'Kerala', stateCode: '32', gstin: '32AAFFK2975D1ZK', phone: '9446195743' },
+  { name: 'P.I.KAKKU & SON', address: 'ROOM NO : 35/633, Office Stationery, Printed Books, East Bazar - Thrissur, Kerala - 680001', state: 'Kerala', stateCode: '32', gstin: '32AAJFP5958R2ZC', phone: '7736830858' },
+  { name: 'Marundeeshwara Offset Printers', address: '240, 3 Third Main Road, Burma Colony, Perungudi, Chennai - 600 096', state: 'Tamil Nadu', stateCode: '33', gstin: '33BDMPP3206K1ZH', phone: '9840334574' },
+  { name: 'SM Paper Mart', address: 'Rice Bazaar, Kunnamkulam', state: 'Kerala', stateCode: '32', gstin: '32ABHFS1292E1ZE', phone: '9447146460' },
+  { name: 'J.J.Book Centre', address: 'Jews Street, Ernakulam, Kerala', state: 'Kerala', stateCode: '32', gstin: '32AENPJ1356F1ZR', phone: '9447061019' },
+  { name: 'JULIE DISTRIBUTORS', address: 'Ground Floor, Falcon Infrastructure Bldg, North Kalamassery, Ernakulam - 683501', state: 'Kerala', stateCode: '32', gstin: '32CCYPJ32801Z0', phone: '7736628443' },
+  { name: 'Swapna Paper Stationary', address: '40/477 - A, Muslim Street, Opp. Milton Guest House, Ernakulam, Cochin', state: 'Kerala', stateCode: '32', gstin: '32AEUPG9629R1ZI', phone: '9388603128' },
+  { name: 'BLUE MOON PAPER MART', address: 'Room No:5/41-A, Parempadam, Kunnamkulam, Thrissur Dt 680519', state: 'Tamil Nadu', stateCode: '33', gstin: '32AJFPH5752A1Z5', phone: '9037054150' },
+  { name: 'Moothi Agencies', address: '590, Oppanakkara Veethi, Covai', state: 'Tamil Nadu', stateCode: '33', gstin: '33AEAPD6469C1ZY', phone: '9489790174' },
+  { name: 'Jain Paper Mart', address: 'Mather Bazar, Broadway Lane, Ernakulam, Kochi - 682 031', state: 'Kerala', stateCode: '32', gstin: '32AAGFJ0965P1Z1', phone: '9846358866' },
+  { name: 'Jai Enterprise', address: 'No. 49/1 Anga muthu naickan street, Royapettah, Chennai - 600014', state: 'Tamil Nadu', stateCode: '33', gstin: '33BMVPD0722Q3ZO', phone: '7603842513' },
+  { name: 'Premier Office Stationery', address: 'Premier Tower, South Bazaar, Thrissur', state: 'Kerala', stateCode: '32', gstin: '32AGBPG2021Q1ZR', phone: '9446723615' },
+  { name: 'Fine Papermart', address: 'Mother Bazar, Broadway, Ernakulam', state: 'Kerala', stateCode: '32', gstin: '32AACFF1647E1ZZ', phone: '9961001315' },
+  { name: 'JASMINE GRAFIX', address: '39/3323, K.S.N. MENON ROAD, KOCHI - 682016', state: 'Kerala', stateCode: '32', gstin: '32ADKPS8229E1ZF', phone: '9447069770' },
+  { name: 'Essay Books', address: 'SSV College Road, Airapuram, Valayanchirangara (PO), Perumbavoor', state: 'Kerala', stateCode: '32', gstin: '32BOFPS6858Q1ZO', phone: '9995456702' },
+  { name: 'CREATOR GRAPHICS', address: '3/246C, Anna Nagar, Kulathur, Near L&T Byepass, Venkittapuram, Coimbatore - 641 062', state: 'Tamil Nadu', stateCode: '33', gstin: '33AAFFC4942E1ZT', phone: '9843051712' },
+  { name: 'Indian Stationeries', address: '56/23-B R G Pudur Pirivu, Chinniampalayam, Coimbatore - 641 062', state: 'Tamil Nadu', stateCode: '33', gstin: '33ATYPR6399G1Z0', phone: '9092906071' },
+  { name: 'RAANAN AGENCIES', address: '99/5, Middle Street, Chatrapatti - 626102', state: 'Tamil Nadu', stateCode: '33', gstin: '33ALRPL0974A1Z8', phone: '7305646599' },
+  { name: 'Tattvam Trading Co.', address: 'South Janata Road, Thammanam PO, Ernakulam - 682 032', state: 'Kerala', stateCode: '32', gstin: '32ANPPR1668B1ZZ', phone: '9048669128' },
+  { name: 'RG Office Stationery', address: '12/2675, Mar Timotheus High Road, Anjchuvilakk, Thrissur - 680001', state: 'Kerala', stateCode: '32', gstin: '32BZEPR8893Q1Z9', phone: '9605337458' },
+  { name: 'Josephson Office Equipments', address: 'Rice Bazaar, Thrissur - 680 001', state: 'Kerala', stateCode: '32', gstin: '32AABFJ8227H2ZJ', phone: '9567725705' },
+  { name: 'Golden Paper Mart', address: 'College Road, Pathanamthitta', state: 'Kerala', stateCode: '32', gstin: '32AADFG7138A1ZZ', phone: '9895040000' },
+];
+
+// ================================================================
+// AUTOCOMPLETE LOGIC
+// ================================================================
+let acHighlightIndex = -1;
+let acCloseTimer = null;
+
+function fuzzyMatch(query, target) {
+  const q = query.toLowerCase().trim();
+  const t = target.toLowerCase();
+  if (!q) return { match: true, score: 0 };
+  if (t.includes(q)) return { match: true, score: 100 - q.length };
+  // Check if all chars of query appear in order in target
+  let qi = 0;
+  for (let i = 0; i < t.length && qi < q.length; i++) {
+    if (t[i] === q[qi]) qi++;
+  }
+  if (qi === q.length) return { match: true, score: 50 };
+  return { match: false, score: 0 };
+}
+
+function highlightMatch(text, query) {
+  if (!query) return text;
+  const q = query.toLowerCase();
+  const t = text.toLowerCase();
+  const idx = t.indexOf(q);
+  if (idx >= 0) {
+    return text.slice(0, idx) + '<span class="ac-match">' + text.slice(idx, idx + q.length) + '</span>' + text.slice(idx + q.length);
+  }
+  return text;
+}
+
+function onCustomerNameInput(val) {
+  const dropdown = document.getElementById('customer-dropdown');
+  acHighlightIndex = -1;
+  const q = val.trim();
+
+  if (!q) {
+    closeDropdown();
+    return;
+  }
+
+  const results = CUSTOMER_DB
+    .map(c => {
+      const nameMatch = fuzzyMatch(q, c.name);
+      const cityMatch = fuzzyMatch(q, c.address);
+      const best = nameMatch.score >= cityMatch.score ? nameMatch : cityMatch;
+      return { customer: c, match: best.match, score: best.score, nameMatched: nameMatch.match };
+    })
+    .filter(r => r.match)
+    .sort((a, b) => {
+      if (a.nameMatched !== b.nameMatched) return a.nameMatched ? -1 : 1;
+      return b.score - a.score;
+    })
+    .slice(0, 6);
+
+  if (!results.length) {
+    dropdown.innerHTML = '<div class="ac-empty">No matching customers</div>';
+    dropdown.classList.add('open');
+    return;
+  }
+
+  dropdown.innerHTML = results.map((r, i) => {
+    const c = r.customer;
+    const nameHtml = highlightMatch(c.name, q);
+    return `<div class="ac-item" data-idx="${i}" onmousedown="selectCustomer(${CUSTOMER_DB.indexOf(c)})">
+      <div class="ac-name">${nameHtml}</div>
+      <div class="ac-detail">${c.phone} · ${c.address.split(',').slice(-1)[0].trim()}</div>
+    </div>`;
+  }).join('');
+  dropdown.classList.add('open');
+}
+
+function onCustomerNameKeydown(e) {
+  const dropdown = document.getElementById('customer-dropdown');
+  const items = dropdown.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acHighlightIndex = Math.min(acHighlightIndex + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === acHighlightIndex));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acHighlightIndex = Math.max(acHighlightIndex - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === acHighlightIndex));
+  } else if (e.key === 'Enter' && acHighlightIndex >= 0) {
+    e.preventDefault();
+    items[acHighlightIndex].dispatchEvent(new MouseEvent('mousedown'));
+  } else if (e.key === 'Escape') {
+    closeDropdown();
+  }
+}
+
+function selectCustomer(dbIdx) {
+  const c = CUSTOMER_DB[dbIdx];
+  if (!c) return;
+  document.getElementById('f-cname').value = c.name;
+  document.getElementById('f-addr').value = c.address;
+  document.getElementById('f-phone').value = c.phone;
+  document.getElementById('f-gstin').value = c.gstin;
+  // Set state
+  const stateSelect = document.getElementById('f-state');
+  stateSelect.value = c.state;
+  document.getElementById('f-statecode').value = c.stateCode;
+  // Auto tax type: our company is Tamil Nadu (33), so if customer is also 33 → intra-state
+  const taxTypeEl = document.getElementById('f-taxtype');
+  taxTypeEl.value = c.stateCode === '33' ? 'cgst_sgst' : 'igst';
+  calcTotals();
+  closeDropdown();
+  showToast(`✓ Filled: ${c.name}`);
+}
+
+function scheduleCloseDropdown() {
+  acCloseTimer = setTimeout(closeDropdown, 180);
+}
+
+function closeDropdown() {
+  if (acCloseTimer) { clearTimeout(acCloseTimer); acCloseTimer = null; }
+  const dropdown = document.getElementById('customer-dropdown');
+  dropdown.classList.remove('open');
+  acHighlightIndex = -1;
+}
+
+// ================================================================
+// STATE ----
+// ================================================================
 let invoices = [];
 let currentInvoice = null;
 let itemCount = 1;
@@ -624,27 +825,18 @@ let config = {
   acno: '67182959710', ifsc: 'SBIN0070819'
 };
 
-// ---- PRICE SHEET SYSTEM ----
-// Quality columns, in display order. Every quality must belong to exactly one group.
+// ================================================================
+// PRICE SHEET SYSTEM
+// ================================================================
 const QUALITIES = ['REGULAR', 'SONAL', 'FINE', 'SUPER FINE', 'POLYNET'];
 
-// Structural skeleton: which categories/sizes exist. Vendor rates are filled in by the
-// user via the grid editor — nothing is pre-filled, since no price sheet should auto-fill
-// rates until the user has actually built or loaded one.
 const PRICE_SHEET_SKELETON = {
   'Standard Envelope': ['20x16','18x14','16x12','15x11','14x10','14x10.5','12x10','12x6','12x5','10.5x8','10x8','10x7','9x6','11x5','10.5x4.5','9.5x4.5','7x5','7x4'],
   '2" Box Envelope': ['20x16','18x14','16x12','15x11','14x10','12x10']
 };
 
-// In-progress sheet being built/edited in Settings (not yet saved).
-let draftSheet = {
-  vendor: {},   // { category: { size: [rate-or-null x5] } }
-  groups: []    // [{ id, name, decrease, increase, qualities: [...] }]
-};
-
-// All saved, named price sheets: { id, name, savedAt, vendor, groups, computed }
+let draftSheet = { vendor: {}, groups: [] };
 let priceSheets = [];
-// Which saved sheet (by id) is currently selected to power rate auto-fill on the New Invoice screen.
 let activePriceSheetId = null;
 
 function newEmptyVendorSheet() {
@@ -656,13 +848,10 @@ function newEmptyVendorSheet() {
   return v;
 }
 
-// Looks up which group a quality belongs to, given a groups array.
 function groupForQuality(groups, quality) {
   return groups.find(g => g.qualities.includes(quality)) || null;
 }
 
-// Applies a saved sheet's vendor data + groups to produce the final rate table.
-// yourPrice = vendorPrice * (1 - decrease%/100) * (1 + increase%/100)
 function computeSheet(vendor, groups) {
   const computed = {};
   Object.keys(vendor).forEach(cat => {
@@ -673,7 +862,7 @@ function computeSheet(vendor, groups) {
         const vRate = vendorRates[i];
         if (vRate === null || vRate === undefined || vRate === '') return null;
         const group = groupForQuality(groups, q);
-        if (!group) return null; // quality not assigned to any group yet
+        if (!group) return null;
         const dec = parseFloat(group.decrease) || 0;
         const inc = parseFloat(group.increase) || 0;
         const result = vRate * (1 - dec/100) * (1 + inc/100);
@@ -684,8 +873,6 @@ function computeSheet(vendor, groups) {
   return computed;
 }
 
-// Rate lookup used by the New Invoice item dropdowns. Returns null if no active
-// price sheet, or if that combo has no rate.
 function getRate(category, size, quality) {
   if (!activePriceSheetId) return null;
   const sheet = priceSheets.find(s => s.id === activePriceSheetId);
@@ -699,13 +886,8 @@ function getRate(category, size, quality) {
 }
 
 function loadPriceSheets() {
-  try {
-    const saved = localStorage.getItem('jayaPriceSheets');
-    if (saved) priceSheets = JSON.parse(saved);
-  } catch(e) { priceSheets = []; }
-  try {
-    activePriceSheetId = localStorage.getItem('jayaActivePriceSheetId') || null;
-  } catch(e) { activePriceSheetId = null; }
+  try { const saved = localStorage.getItem('jayaPriceSheets'); if (saved) priceSheets = JSON.parse(saved); } catch(e) { priceSheets = []; }
+  try { activePriceSheetId = localStorage.getItem('jayaActivePriceSheetId') || null; } catch(e) { activePriceSheetId = null; }
 }
 
 function savePriceSheetsToStorage() {
@@ -721,7 +903,6 @@ function setActivePriceSheet(id) {
   } catch(e) {}
 }
 
-// ---- PRICE SHEETS: LIST VIEW ----
 function showPriceSheetListView() {
   document.getElementById('ps-list-view').style.display = 'block';
   document.getElementById('ps-builder-view').style.display = 'none';
@@ -762,7 +943,6 @@ function deletePriceSheet(id) {
   showToast('Price sheet deleted');
 }
 
-// ---- PRICE SHEETS: BUILDER ----
 function startNewPriceSheet() {
   editingSheetId = null;
   draftSheet = { vendor: newEmptyVendorSheet(), groups: [] };
@@ -775,11 +955,8 @@ function startNewPriceSheet() {
   renderComputedPreview();
 }
 
-function cancelPriceSheetBuilder() {
-  showPriceSheetListView();
-}
+function cancelPriceSheetBuilder() { showPriceSheetListView(); }
 
-// Renders an editable grid: one block per category, rows = sizes, columns = qualities
 function renderVendorGrid() {
   const el = document.getElementById('ps-vendor-grid');
   let html = '';
@@ -807,7 +984,6 @@ function updateVendorCell(cat, size, qIdx, value) {
   renderComputedPreview();
 }
 
-// ---- GROUPS EDITOR ----
 let groupIdCounter = 0;
 function addGroup() {
   groupIdCounter++;
@@ -834,19 +1010,10 @@ function renderGroupsEditor() {
     return `
     <div class="item-row-form">
       <button class="remove-item" onclick="removeGroup('${g.id}')">✕</button>
-      <div class="form-group">
-        <label>Group Name</label>
-        <input type="text" value="${g.name}" oninput="updateGroupField('${g.id}','name',this.value)">
-      </div>
+      <div class="form-group"><label>Group Name</label><input type="text" value="${g.name}" oninput="updateGroupField('${g.id}','name',this.value)"></div>
       <div class="form-row">
-        <div class="form-group">
-          <label>% Decrease (off vendor price)</label>
-          <input type="number" step="0.01" value="${g.decrease}" oninput="updateGroupField('${g.id}','decrease',this.value)">
-        </div>
-        <div class="form-group">
-          <label>% Increase (after decrease)</label>
-          <input type="number" step="0.01" value="${g.increase}" oninput="updateGroupField('${g.id}','increase',this.value)">
-        </div>
+        <div class="form-group"><label>% Decrease (off vendor price)</label><input type="number" step="0.01" value="${g.decrease}" oninput="updateGroupField('${g.id}','decrease',this.value)"></div>
+        <div class="form-group"><label>% Increase (after decrease)</label><input type="number" step="0.01" value="${g.increase}" oninput="updateGroupField('${g.id}','increase',this.value)"></div>
       </div>
       <div class="form-group">
         <label>Qualities in this group</label>
@@ -865,7 +1032,7 @@ function updateGroupField(id, field, value) {
   const g = draftSheet.groups.find(g => g.id === id);
   if (!g) return;
   g[field] = (field === 'decrease' || field === 'increase') ? (parseFloat(value) || 0) : value;
-  if (field === 'name') renderGroupsEditor(); // refresh label only, no need for full rebuild otherwise
+  if (field === 'name') renderGroupsEditor();
   renderComputedPreview();
 }
 
@@ -878,7 +1045,6 @@ function toggleGroupQuality(id, quality, checked) {
   renderComputedPreview();
 }
 
-// ---- COMPUTED PREVIEW ----
 function renderComputedPreview() {
   const el = document.getElementById('ps-computed-preview');
   const unassigned = QUALITIES.filter(q => !groupForQuality(draftSheet.groups, q));
@@ -900,14 +1066,10 @@ function renderComputedPreview() {
   el.innerHTML = html;
 }
 
-// ---- PDF IMPORT (fixed layout: same size list/sections as the standard sheet) ----
 async function importVendorPdf(file) {
   if (!file) return;
   const statusEl = document.getElementById('ps-import-status');
-  if (typeof pdfjsLib === 'undefined') {
-    statusEl.textContent = '⚠️ PDF library failed to load — check your internet connection and try again.';
-    return;
-  }
+  if (typeof pdfjsLib === 'undefined') { statusEl.textContent = '⚠️ PDF library failed to load — check your internet connection and try again.'; return; }
   statusEl.textContent = 'Reading PDF…';
   try {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -934,18 +1096,12 @@ async function importVendorPdf(file) {
   }
 }
 
-// Parses raw extracted PDF text against the known size list for each category.
-// Looks for "<size> <num-or-dash> <num-or-dash> <num-or-dash> <num-or-dash> <num-or-dash>"
-// for every known size label, tolerant of x/X and *** / --- placeholders.
 function parseVendorSheetText(text) {
   const vendor = newEmptyVendorSheet();
   let matchedSizes = 0;
-  const norm = s => s.toLowerCase().replace(/\s+/g, '');
   const numberToken = '([\\d.]+|-{2,3}|\\*{2,3})';
-
   Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
     PRICE_SHEET_SKELETON[cat].forEach(size => {
-      // Build a regex that matches the size (allowing x/X) followed by 5 number-or-dash tokens
       const sizePattern = size.replace(/x/gi, '[xX]').replace(/\./g, '\\.');
       const re = new RegExp(sizePattern + '\\s+' + numberToken + '\\s+' + numberToken + '\\s+' + numberToken + '\\s+' + numberToken + '\\s+' + numberToken, 'i');
       const m = re.exec(text);
@@ -963,76 +1119,19 @@ function parseVendorSheetText(text) {
   return { vendor, matchedSizes };
 }
 
+let editingSheetId = null;
 
-function savePriceSheet() {
-  const name = document.getElementById('ps-name-input').value.trim();
-  if (!name) { showToast('Please name this price sheet'); return; }
-  if (!draftSheet.groups.length) { showToast('Add at least one quality group first'); return; }
-  const unassigned = QUALITIES.filter(q => !groupForQuality(draftSheet.groups, q));
-  if (unassigned.length) { showToast(`Assign ${unassigned.join(', ')} to a group first`); return; }
-  const computed = computeSheet(draftSheet.vendor, draftSheet.groups);
-  const sheet = {
-    id: 'ps' + Date.now(),
-    name,
-    savedAt: new Date().toISOString(),
-    vendor: draftSheet.vendor,
-    groups: draftSheet.groups,
-    computed
-  };
-  priceSheets.push(sheet);
-  savePriceSheetsToStorage();
-  showToast(`"${name}" saved ✓`);
-  showPriceSheetListView();
-  renderPriceSheetsList();
-}
-
-// ---- PRICE SHEET EDIT ----
-let editingSheetId = null; // null = new sheet, string id = editing existing
-
-function editPriceSheet(id) {
-  const sheet = priceSheets.find(s => s.id === id);
-  if (!sheet) return;
-  editingSheetId = id;
-  // Load sheet data into draftSheet
-  draftSheet = {
-    vendor: JSON.parse(JSON.stringify(sheet.vendor)),
-    groups: JSON.parse(JSON.stringify(sheet.groups))
-  };
-  document.getElementById('ps-list-view').style.display = 'none';
-  document.getElementById('ps-builder-view').style.display = 'block';
-  renderVendorGrid();
-  renderGroupsEditor();
-  renderComputedPreview();
-  // Show save button triggers the modal now
-}
-
-function startNewPriceSheet_orig() {
-  editingSheetId = null;
-  draftSheet = { vendor: newEmptyVendorSheet(), groups: [] };
-  document.getElementById('ps-name-input').value = '';
-  document.getElementById('ps-import-status').textContent = '';
-  document.getElementById('ps-list-view').style.display = 'none';
-  document.getElementById('ps-builder-view').style.display = 'block';
-  renderVendorGrid();
-  renderGroupsEditor();
-  renderComputedPreview();
-}
-
-// ---- PS SAVE MODAL ----
 function openPsSaveModal() {
   const name = editingSheetId
     ? (priceSheets.find(s => s.id === editingSheetId)?.name || '')
     : (document.getElementById('ps-name-input').value.trim());
   document.getElementById('ps-save-name').value = name;
-  // If new sheet, only show "Save" (as new), hide overwrite option
   const overwriteBtn = document.querySelector('#ps-save-modal button[onclick="doSavePriceSheet(\'overwrite\')"]');
   if (overwriteBtn) overwriteBtn.style.display = editingSheetId ? 'block' : 'none';
   document.getElementById('ps-save-modal').style.display = 'flex';
 }
 
-function closePsSaveModal() {
-  document.getElementById('ps-save-modal').style.display = 'none';
-}
+function closePsSaveModal() { document.getElementById('ps-save-modal').style.display = 'none'; }
 
 function doSavePriceSheet(mode) {
   const name = document.getElementById('ps-save-name').value.trim();
@@ -1060,14 +1159,23 @@ function doSavePriceSheet(mode) {
   renderPriceSheetsList();
 }
 
-// ---- PS DOWNLOAD MODAL ----
+function editPriceSheet(id) {
+  const sheet = priceSheets.find(s => s.id === id);
+  if (!sheet) return;
+  editingSheetId = id;
+  draftSheet = { vendor: JSON.parse(JSON.stringify(sheet.vendor)), groups: JSON.parse(JSON.stringify(sheet.groups)) };
+  document.getElementById('ps-list-view').style.display = 'none';
+  document.getElementById('ps-builder-view').style.display = 'block';
+  renderVendorGrid();
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
 let psDownloadTargetId = null;
 
 function openPsDownloadModal(id) {
   psDownloadTargetId = id;
   const el = document.getElementById('ps-col-checks');
-  // Build checkboxes: "All columns" + each quality
-  const allCols = ['SIZE', ...QUALITIES];
   el.innerHTML = `
     <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;padding:8px 10px;background:var(--brand-light);border-radius:8px;cursor:pointer">
       <input type="checkbox" id="ps-col-all" onchange="toggleAllPsCols(this)" style="width:18px;height:18px;accent-color:var(--accent)"> All Columns (full sheet)
@@ -1078,7 +1186,6 @@ function openPsDownloadModal(id) {
         <input type="checkbox" class="ps-col-check" value="${q}" style="width:18px;height:18px;accent-color:var(--accent)"> ${q}
       </label>`).join('')}
   `;
-  // Default: all checked
   document.getElementById('ps-col-all').checked = true;
   document.querySelectorAll('.ps-col-check').forEach(c => c.checked = true);
   document.getElementById('ps-download-modal').style.display = 'flex';
@@ -1101,62 +1208,40 @@ function confirmPsDownload() {
   exportPriceSheetPdf(psDownloadTargetId, selectedQualities);
 }
 
-// ---- PRICE SHEET PDF EXPORT ----
-// Produces a PDF that looks like the standard vendor sheet format
-// (header row: SIZE / REGULAR / SONAL / FINE / SUPER FINE / POLYNET,
-//  Standard then Box sections) and invisibly embeds a JSON blob in the
-//  PDF metadata so it can be losslessly re-imported later.
 function exportPriceSheetPdf(id, selectedQualities) {
   const sheet = priceSheets.find(s => s.id === id);
   if (!sheet) return;
   if (!selectedQualities || !selectedQualities.length) selectedQualities = [...QUALITIES];
-  if (typeof window.jspdf === 'undefined') {
-    showToast('PDF library not loaded — check your connection');
-    return;
-  }
+  if (typeof window.jspdf === 'undefined') { showToast('PDF library not loaded — check your connection'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
   const margin = 12;
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   let y = margin;
 
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
   doc.text('68/6 - Middle Street, Chatrapatti - 626 102', margin, y);
   doc.text('Cell: 94870 53751', pageW - margin, y, { align: 'right' });
   y += 5;
-
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15); doc.setFont('helvetica', 'bold');
   doc.text('JAYA ENTERPRISES', pageW / 2, y, { align: 'center' });
   y += 6;
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
   doc.text('(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu', pageW / 2, y, { align: 'center' });
   y += 5;
   doc.setFont('helvetica', 'bold');
   doc.text('GSTIN : 33CDQPK3907D1ZO', pageW / 2, y, { align: 'center' });
   y += 5;
-
   doc.setFontSize(11);
   doc.text('PRICE SHEET', pageW / 2, y, { align: 'center' });
-  // Show which columns are included if not all
   if (selectedQualities.length < QUALITIES.length) {
-    y += 5;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
+    y += 5; doc.setFontSize(8); doc.setFont('helvetica', 'normal');
     doc.text('Columns: ' + selectedQualities.join(' | '), pageW / 2, y, { align: 'center' });
   }
   y += 7;
+  doc.setLineWidth(0.4); doc.line(margin, y, pageW - margin, y); y += 5;
 
-  doc.setLineWidth(0.4);
-  doc.line(margin, y, pageW - margin, y);
-  y += 5;
-
-  // Build column widths based on selectedQualities
   const numQCols = selectedQualities.length;
   const tableW = pageW - 2 * margin;
   const sizeColW = 28;
@@ -1168,126 +1253,66 @@ function exportPriceSheetPdf(id, selectedQualities) {
   const rowH = 6.2;
 
   function drawRow(cells, bold, shaded) {
-    if (shaded) {
-      doc.setFillColor(235, 235, 235);
-      doc.rect(margin, y, tableW, rowH, 'F');
-    }
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.2);
+    if (shaded) { doc.setFillColor(235, 235, 235); doc.rect(margin, y, tableW, rowH, 'F'); }
+    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.2);
     cells.forEach((cell, i) => {
       doc.rect(colX[i], y, colW[i], rowH);
       doc.setFont('helvetica', bold ? 'bold' : 'normal');
       doc.setFontSize(bold ? 8 : 7.5);
       doc.setTextColor(0, 0, 0);
-      const cx = colX[i] + colW[i] / 2;
-      doc.text(String(cell ?? ''), cx, y + rowH * 0.65, { align: 'center' });
+      doc.text(String(cell ?? ''), colX[i] + colW[i] / 2, y + rowH * 0.65, { align: 'center' });
     });
     y += rowH;
   }
 
-  const termsLines = [
-    'Terms & conditions:-',
-    '1. Freight charges extra',
-    '2. Payment: Immediate after delivery',
-    '3. Mode of payment: Core Banking',
-    '4. No Discount',
-    '5. GST 18% extra'
-  ];
+  const termsLines = ['Terms & conditions:-','1. Freight charges extra','2. Payment: Immediate after delivery','3. Mode of payment: Core Banking','4. No Discount','5. GST 18% extra'];
   const termsH = 6 + termsLines.length * 4.5;
   const bottomReserve = margin + termsH + 4;
 
   Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
     const rowsNeeded = 2 + PRICE_SHEET_SKELETON[cat].length;
-    if (y + rowsNeeded * rowH > pageH - bottomReserve) {
-      doc.addPage();
-      y = margin;
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text(cat, margin, y + 4);
-    y += 6;
+    if (y + rowsNeeded * rowH > pageH - bottomReserve) { doc.addPage(); y = margin; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+    doc.text(cat, margin, y + 4); y += 6;
     drawRow(headers, true, true);
     PRICE_SHEET_SKELETON[cat].forEach(size => {
       const allRates = (sheet.computed[cat] && sheet.computed[cat][size]) || [null,null,null,null,null];
-      const filteredRates = selectedQualities.map(q => {
-        const qi = QUALITIES.indexOf(q);
-        return qi >= 0 ? allRates[qi] : null;
-      });
-      const cells = [size, ...filteredRates.map(r => r === null ? '—' : r.toFixed(2))];
-      drawRow(cells, false, false);
+      const filteredRates = selectedQualities.map(q => { const qi = QUALITIES.indexOf(q); return qi >= 0 ? allRates[qi] : null; });
+      drawRow([size, ...filteredRates.map(r => r === null ? '—' : r.toFixed(2))], false, false);
     });
     y += 4;
   });
 
-  y += 2;
-  doc.setDrawColor(160, 160, 160);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageW - margin, y);
-  y += 5;
+  y += 2; doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.3); doc.line(margin, y, pageW - margin, y); y += 5;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
+  doc.text(termsLines[0], margin, y); y += 5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  termsLines.slice(1).forEach(line => { doc.text(line, margin, y); y += 4.5; });
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(0, 0, 0);
-  doc.text(termsLines[0], margin, y);
-  y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  termsLines.slice(1).forEach(line => {
-    doc.text(line, margin, y);
-    y += 4.5;
-  });
-
-  // Embed full data for re-import (always includes all data regardless of columns shown)
-  const payload = {
-    _jayaPriceSheet: true,
-    id: sheet.id,
-    name: sheet.name,
-    savedAt: sheet.savedAt,
-    vendor: sheet.vendor,
-    groups: sheet.groups,
-    computed: sheet.computed
-  };
+  const payload = { _jayaPriceSheet: true, id: sheet.id, name: sheet.name, savedAt: sheet.savedAt, vendor: sheet.vendor, groups: sheet.groups, computed: sheet.computed };
   const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  doc.setProperties({
-    title: 'Price Sheet — ' + sheet.name,
-    subject: 'JAYA_PS_DATA:' + encoded,
-    author: 'JAYA ENTERPRISES'
-  });
-
-  const fname = `PriceSheet_${sheet.name.replace(/\s+/g,'_')}.pdf`;
-  doc.save(fname);
+  doc.setProperties({ title: 'Price Sheet — ' + sheet.name, subject: 'JAYA_PS_DATA:' + encoded, author: 'JAYA ENTERPRISES' });
+  doc.save(`PriceSheet_${sheet.name.replace(/\s+/g,'_')}.pdf`);
   showToast('Price sheet PDF downloaded ✓');
 }
 
-// ---- PRICE SHEET PDF RE-IMPORT ----
-// Reads an exported price sheet PDF, extracts the embedded JSON from the
-// invisible Subject metadata, and restores the sheet to local storage.
 async function reimportPriceSheetPdf(file) {
   if (!file) return;
   const statusEl = document.getElementById('ps-reimport-status');
-  if (typeof pdfjsLib === 'undefined') {
-    statusEl.textContent = '⚠️ PDF library not loaded — check your internet connection.';
-    return;
-  }
+  if (typeof pdfjsLib === 'undefined') { statusEl.textContent = '⚠️ PDF library not loaded — check your internet connection.'; return; }
   statusEl.textContent = 'Reading PDF…';
   try {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-
-    // Try metadata first (most reliable path)
     let payload = null;
     try {
       const meta = await pdf.getMetadata();
       const subject = meta?.info?.Subject || meta?.metadata?.get('dc:description') || '';
       if (subject.startsWith('JAYA_PS_DATA:')) {
-        const encoded = subject.slice('JAYA_PS_DATA:'.length);
-        payload = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+        payload = JSON.parse(decodeURIComponent(escape(atob(subject.slice('JAYA_PS_DATA:'.length)))));
       }
-    } catch(e) { /* fall through to text scan */ }
-
-    // Fallback: scan all text for the encoded token
+    } catch(e) {}
     if (!payload) {
       let fullText = '';
       for (let p = 1; p <= pdf.numPages; p++) {
@@ -1296,33 +1321,16 @@ async function reimportPriceSheetPdf(file) {
         fullText += content.items.map(it => it.str).join('');
       }
       const match = /JAYA_PS_DATA:([A-Za-z0-9+/=]+)/.exec(fullText);
-      if (match) {
-        payload = JSON.parse(decodeURIComponent(escape(atob(match[1]))));
-      }
+      if (match) payload = JSON.parse(decodeURIComponent(escape(atob(match[1]))));
     }
-
     if (!payload || !payload._jayaPriceSheet) {
       statusEl.textContent = '⚠️ This PDF doesn\'t contain embedded Jaya price sheet data. Use the vendor import instead.';
       return;
     }
-
-    // Check for duplicate (same original id) — update or add
     const existingIdx = priceSheets.findIndex(s => s.id === payload.id);
-    const restored = {
-      id: payload.id,
-      name: payload.name,
-      savedAt: payload.savedAt,
-      vendor: payload.vendor,
-      groups: payload.groups,
-      computed: payload.computed
-    };
-    if (existingIdx >= 0) {
-      priceSheets[existingIdx] = restored;
-      statusEl.textContent = `✓ Updated "${restored.name}" from PDF.`;
-    } else {
-      priceSheets.push(restored);
-      statusEl.textContent = `✓ Restored "${restored.name}" from PDF.`;
-    }
+    const restored = { id: payload.id, name: payload.name, savedAt: payload.savedAt, vendor: payload.vendor, groups: payload.groups, computed: payload.computed };
+    if (existingIdx >= 0) { priceSheets[existingIdx] = restored; statusEl.textContent = `✓ Updated "${restored.name}" from PDF.`; }
+    else { priceSheets.push(restored); statusEl.textContent = `✓ Restored "${restored.name}" from PDF.`; }
     savePriceSheetsToStorage();
     renderPriceSheetsList();
     showToast(`"${restored.name}" imported ✓`);
@@ -1357,7 +1365,6 @@ function populatePriceSheetSelector() {
   }
 }
 
-
 function loadConfig() {
   try {
     const saved = localStorage.getItem('jayaConfig');
@@ -1386,8 +1393,10 @@ function saveSettings() {
   showToast('Settings saved ✓');
 }
 
-// ---- NAVIGATION ----
-let previewSource = 'new'; // 'new' or 'history'
+// ================================================================
+// NAVIGATION
+// ================================================================
+let previewSource = 'new';
 
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -1399,25 +1408,20 @@ function showScreen(name) {
   if (name === 'history') renderHistory();
   if (name === 'new') populatePriceSheetSelector();
   if (name === 'pricesheets') { showPriceSheetListView(); renderPriceSheetsList(); }
+  closeDropdown();
 }
 
-// ---- BACK FROM PREVIEW ----
 function goBackFromPreview() {
-  if (previewSource === 'history') {
-    showScreen('history');
-  } else {
-    showScreen('new');
-  }
+  if (previewSource === 'history') showScreen('history');
+  else showScreen('new');
 }
 
-// ---- EDIT INVOICE FROM PREVIEW ----
 function editFromPreview() {
   if (!currentInvoice) return;
   loadInvoiceIntoForm(currentInvoice);
   showScreen('new');
 }
 
-// ---- VIEW INVOICE (from history card) ----
 function viewInvoice(invNo) {
   previewSource = 'history';
   currentInvoice = invoices.find(i => String(i.invNo) === String(invNo));
@@ -1425,10 +1429,9 @@ function viewInvoice(invNo) {
   showScreen('preview');
   document.getElementById('nav-history').classList.add('active');
   renderInvoiceHTML(currentInvoice);
-  updateSubmitBtn(null); // ensure btn stays as "Preview" mode
+  updateSubmitBtn(null);
 }
 
-// ---- EDIT INVOICE FROM HISTORY ----
 function editInvoiceFromHistory(invNo) {
   const inv = invoices.find(i => String(i.invNo) === String(invNo));
   if (!inv) return;
@@ -1437,13 +1440,12 @@ function editInvoiceFromHistory(invNo) {
   showScreen('new');
 }
 
-// ---- LOAD INVOICE INTO FORM ----
 function loadInvoiceIntoForm(inv) {
   document.getElementById('f-invno').value = inv.invNo || '';
   document.getElementById('f-invdt').value = inv.invDate || '';
   document.getElementById('f-cname').value = inv.custName || '';
   document.getElementById('f-addr').value = inv.address || '';
-  // State dropdown
+  document.getElementById('f-phone').value = inv.phone || '';
   const stateSelect = document.getElementById('f-state');
   stateSelect.value = inv.state || '';
   document.getElementById('f-statecode').value = inv.stateCode || '';
@@ -1454,11 +1456,9 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-supply-dt').value = inv.supplyDt || '';
   document.getElementById('f-packing').value = inv.packing || 0;
   document.getElementById('f-discount').value = inv.discountPct || 0;
-  // GST
   document.getElementById('f-gst').value = inv.gstRate || 9;
   document.getElementById('f-taxtype').value = inv.taxType || 'cgst_sgst';
 
-  // Clear items and rebuild
   const container = document.getElementById('items-container');
   container.innerHTML = '';
   itemIndex = -1;
@@ -1467,8 +1467,6 @@ function loadInvoiceIntoForm(inv) {
     const div = document.createElement('div');
     div.className = 'item-row-form';
     div.id = 'item-' + itemIndex;
-    const isOther = !PRICE_SHEET_SKELETON[item.desc] && !Object.keys(PRICE_SHEET_SKELETON).some(k => (item.desc||'').includes(k));
-    // Try to parse desc back into category/size/quality
     let detectedCat = '', detectedSize = '', detectedQuality = '', detectedOther = '';
     for (const cat of Object.keys(PRICE_SHEET_SKELETON)) {
       if ((item.desc||'').includes(cat)) {
@@ -1483,16 +1481,13 @@ function loadInvoiceIntoForm(inv) {
       }
     }
     if (!detectedCat) detectedOther = item.desc || '';
-
     const sizeOptions = detectedCat ? PRICE_SHEET_SKELETON[detectedCat].map(s => `<option value="${s}" ${s===detectedSize?'selected':''}>${s}</option>`).join('') : '';
     const qualityOptions = QUALITIES.map(q => `<option value="${q}" ${q===detectedQuality?'selected':''}>${q}</option>`).join('');
-
     div.innerHTML = `
       <button class="remove-item" onclick="removeItem(${itemIndex})">✕</button>
       <input type="hidden" class="i-lot" value="${item.lot||''}">
       <input type="hidden" class="i-hsn" value="${item.hsn||'4817'}">
-      <div class="form-group">
-        <label>Item Type</label>
+      <div class="form-group"><label>Item Type</label>
         <select class="i-category" onchange="onCategoryChange(this)">
           <option value="">— Select —</option>
           <option value="Standard Envelope" ${detectedCat==='Standard Envelope'?'selected':''}>Standard Envelope</option>
@@ -1501,16 +1496,8 @@ function loadInvoiceIntoForm(inv) {
         </select>
       </div>
       <div class="form-row i-dropdown-row" style="${!detectedCat?'display:none':''}">
-        <div class="form-group"><label>Size</label>
-          <select class="i-size" onchange="onSizeOrQualityChange(this)">
-            <option value="">— Select —</option>${sizeOptions}
-          </select>
-        </div>
-        <div class="form-group"><label>Quality</label>
-          <select class="i-quality" onchange="onSizeOrQualityChange(this)">
-            <option value="">— Select —</option>${qualityOptions}
-          </select>
-        </div>
+        <div class="form-group"><label>Size</label><select class="i-size" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option>${sizeOptions}</select></div>
+        <div class="form-group"><label>Quality</label><select class="i-quality" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option>${qualityOptions}</select></div>
       </div>
       <div class="form-group i-other-row" style="${!detectedCat?'':'display:none'}">
         <label>Description of Goods</label>
@@ -1530,25 +1517,21 @@ function loadInvoiceIntoForm(inv) {
   updateSubmitBtn(inv.invNo);
 }
 
-// ---- UPDATE SUBMIT BTN LABEL ----
 function updateSubmitBtn(invNo) {
   const btn = document.getElementById('submit-inv-btn');
   if (!btn) return;
-  if (invNo) {
-    btn.textContent = `💾 Update Invoice #${invNo}`;
-  } else {
-    btn.innerHTML = '👁 Preview &amp; Print Invoice';
-  }
+  if (invNo) btn.textContent = `💾 Update Invoice #${invNo}`;
+  else btn.innerHTML = '👁 Preview &amp; Print Invoice';
   btn._editingInvNo = invNo || null;
 }
 
-// ---- CLEAR ENTIRE BILL ----
 function clearEntireBill() {
   if (!confirm('Are you sure you want to clear this entire bill? All entered data will be lost.')) return;
   document.getElementById('f-invno').value = '';
   setTodayDate();
   document.getElementById('f-cname').value = '';
   document.getElementById('f-addr').value = '';
+  document.getElementById('f-phone').value = '';
   document.getElementById('f-state').value = '';
   document.getElementById('f-statecode').value = '';
   document.getElementById('f-gstin').value = '';
@@ -1560,7 +1543,6 @@ function clearEntireBill() {
   document.getElementById('f-discount').value = '0';
   document.getElementById('f-gst').value = '9';
   document.getElementById('f-taxtype').value = 'cgst_sgst';
-  // Reset items to one empty row
   const container = document.getElementById('items-container');
   container.innerHTML = '';
   itemIndex = 0;
@@ -1597,31 +1579,24 @@ function clearEntireBill() {
   showToast('Bill cleared ✓');
 }
 
-// ---- STATE DROPDOWN AUTO-FILL ----
+// ================================================================
+// STATE CODES & TAX AUTO-SWITCH
+// ================================================================
 const STATE_CODES = {
-  'Tamil Nadu': '33',
-  'Karnataka': '29',
-  'Andhra Pradesh': '37',
-  'Telangana': '36',
-  'Kerala': '32',
-  'Puducherry': '34',
-  'Lakshadweep': '31'
+  'Tamil Nadu': '33', 'Karnataka': '29', 'Andhra Pradesh': '37',
+  'Telangana': '36', 'Kerala': '32', 'Puducherry': '34', 'Lakshadweep': '31'
 };
 
 function onStateChange(state) {
   const code = STATE_CODES[state] || '';
   document.getElementById('f-statecode').value = code;
-  // Auto-flip tax type
+  // Our company is Tamil Nadu (33) — intra if customer also 33, else inter
   const taxTypeEl = document.getElementById('f-taxtype');
-  if (code === '33') {
-    taxTypeEl.value = 'cgst_sgst';
-  } else if (code) {
-    taxTypeEl.value = 'igst';
-  }
+  if (code === '33') taxTypeEl.value = 'cgst_sgst';
+  else if (code) taxTypeEl.value = 'igst';
   calcTotals();
 }
 
-// ---- GSTIN REVERSE READER ----
 function onGstinInput(val) {
   const cleaned = val.replace(/\s/g, '');
   if (cleaned.length >= 2) {
@@ -1637,13 +1612,12 @@ function onGstinInput(val) {
   }
 }
 
-// ---- LOCAL INVOICE STORAGE ----
+// ================================================================
+// LOCAL STORAGE
+// ================================================================
 function saveInvoices() {
-  try {
-    localStorage.setItem('jayaInvoices', JSON.stringify(invoices));
-  } catch(e) {
-    showToast('Could not save invoice — storage may be full');
-  }
+  try { localStorage.setItem('jayaInvoices', JSON.stringify(invoices)); }
+  catch(e) { showToast('Could not save invoice — storage may be full'); }
 }
 
 function loadCachedInvoices() {
@@ -1653,19 +1627,15 @@ function loadCachedInvoices() {
   } catch(e) {}
 }
 
-// ---- BACKUP: EXPORT / IMPORT ----
 function exportData() {
   if (!invoices.length) { showToast('No invoices to export yet'); return; }
   const payload = { exportedAt: new Date().toISOString(), config, invoices };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,10);
   a.href = url;
-  a.download = `Jaya_Invoices_Backup_${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.download = `Jaya_Invoices_Backup_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('Backup downloaded ✓');
 }
@@ -1678,21 +1648,20 @@ function importData(file) {
       const payload = JSON.parse(e.target.result);
       const incoming = Array.isArray(payload) ? payload : payload.invoices;
       if (!Array.isArray(incoming)) { showToast('That file doesn\'t look like a valid backup'); return; }
-      // Merge by invoice number, incoming wins on conflict
       const byNo = new Map(invoices.map(i => [String(i.invNo), i]));
       incoming.forEach(i => { if (i && i.invNo) byNo.set(String(i.invNo), i); });
       invoices = Array.from(byNo.values());
       saveInvoices();
       renderStats(); renderRecent(); renderHistory();
       showToast(`Imported ✓ (${invoices.length} invoices total)`);
-    } catch(err) {
-      showToast('Could not read that backup file');
-    }
+    } catch(err) { showToast('Could not read that backup file'); }
   };
   reader.readAsText(file);
 }
 
-// ---- RENDER STATS ----
+// ================================================================
+// RENDER STATS / RECENT / HISTORY
+// ================================================================
 function renderStats() {
   document.getElementById('stat-count').textContent = invoices.length;
   const now = new Date();
@@ -1715,26 +1684,15 @@ function parseDate(str) {
   return new Date(str);
 }
 
-// Format a YYYY-MM-DD (from <input type="date">) or any parseable date string as DD-MM-YYYY
 function formatDateDMY(str) {
   if (!str) return '';
-  // Already in YYYY-MM-DD form from the date input
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
-  if (isoMatch) {
-    const [, yyyy, mm, dd] = isoMatch;
-    return `${dd}-${mm}-${yyyy}`;
-  }
+  if (isoMatch) { const [, yyyy, mm, dd] = isoMatch; return `${dd}-${mm}-${yyyy}`; }
   const d = parseDate(str);
-  if (d && !isNaN(d)) {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}-${mm}-${yyyy}`;
-  }
+  if (d && !isNaN(d)) return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
   return str;
 }
 
-// ---- RENDER RECENT ----
 function renderRecent() {
   const el = document.getElementById('recent-list');
   const recent = [...invoices].sort((a,b) => parseInt(b.invNo)-parseInt(a.invNo)).slice(0, 5);
@@ -1742,7 +1700,6 @@ function renderRecent() {
   el.innerHTML = recent.map(inv => invCard(inv)).join('');
 }
 
-// ---- RENDER HISTORY ----
 function renderHistory() {
   const el = document.getElementById('history-list');
   let list = [...invoices].sort((a,b) => parseInt(b.invNo)-parseInt(a.invNo));
@@ -1784,16 +1741,9 @@ function setFilter(mode, el) {
   renderHistory();
 }
 
-function openInvoice(invNo) {
-  previewSource = 'history';
-  currentInvoice = invoices.find(i => i.invNo == invNo);
-  if (!currentInvoice) return;
-  showScreen('preview');
-  document.getElementById('nav-history').classList.add('active');
-  renderInvoiceHTML(currentInvoice);
-}
-
-// ---- NEW INVOICE FORM ----
+// ================================================================
+// ITEMS
+// ================================================================
 let itemIndex = 0;
 function addItem() {
   itemIndex++;
@@ -1805,8 +1755,7 @@ function addItem() {
     <button class="remove-item" onclick="removeItem(${itemIndex})">✕</button>
     <input type="hidden" class="i-lot" value="">
     <input type="hidden" class="i-hsn" value="4817">
-    <div class="form-group">
-      <label>Item Type</label>
+    <div class="form-group"><label>Item Type</label>
       <select class="i-category" onchange="onCategoryChange(this)">
         <option value="">— Select —</option>
         <option value="Standard Envelope">Standard Envelope</option>
@@ -1815,23 +1764,10 @@ function addItem() {
       </select>
     </div>
     <div class="form-row i-dropdown-row">
-      <div class="form-group">
-        <label>Size</label>
-        <select class="i-size" onchange="onSizeOrQualityChange(this)">
-          <option value="">— Select —</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Quality</label>
-        <select class="i-quality" onchange="onSizeOrQualityChange(this)">
-          <option value="">— Select —</option>
-        </select>
-      </div>
+      <div class="form-group"><label>Size</label><select class="i-size" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+      <div class="form-group"><label>Quality</label><select class="i-quality" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
     </div>
-    <div class="form-group i-other-row" style="display:none">
-      <label>Description of Goods</label>
-      <input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))">
-    </div>
+    <div class="form-group i-other-row" style="display:none"><label>Description of Goods</label><input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))"></div>
     <input type="hidden" class="i-desc">
     <div class="form-row">
       <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" placeholder="0" oninput="calcItemTotal(this)"></div>
@@ -1839,7 +1775,6 @@ function addItem() {
     </div>
     <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;"></div>`;
   container.appendChild(div);
-  // Show remove buttons
   document.querySelectorAll('.remove-item').forEach(b => b.style.display = 'block');
   updateItemsQtyBadge();
 }
@@ -1852,7 +1787,6 @@ function removeItem(idx) {
     document.querySelectorAll('.remove-item').forEach(b => b.style.display = 'none');
 }
 
-// ---- ITEM TYPE / SIZE / QUALITY DROPDOWNS ----
 function onCategoryChange(select) {
   const row = select.closest('.item-row-form');
   const category = select.value;
@@ -1861,7 +1795,6 @@ function onCategoryChange(select) {
   const otherRow = row.querySelector('.i-other-row');
   const dropdownRow = row.querySelector('.i-dropdown-row');
   const otherInput = row.querySelector('.i-desc-other');
-
   if (category === 'other') {
     dropdownRow.style.display = 'none';
     otherRow.style.display = 'block';
@@ -1871,11 +1804,8 @@ function onCategoryChange(select) {
   } else {
     dropdownRow.style.display = 'grid';
     otherRow.style.display = 'none';
-    // Populate sizes available for this category (the size list itself is fixed structure,
-    // independent of whether a price sheet is active)
     const sizes = PRICE_SHEET_SKELETON[category] || [];
     sizeSelect.innerHTML = '<option value="">— Select —</option>' + sizes.map(s => `<option value="${s}">${s}</option>`).join('');
-    // Quality list is the same for every category
     qualitySelect.innerHTML = '<option value="">— Select —</option>' + QUALITIES.map(q => `<option value="${q}">${q}</option>`).join('');
   }
   syncItemRow(row);
@@ -1887,11 +1817,8 @@ function onSizeOrQualityChange(select) {
   const size = row.querySelector('.i-size').value;
   const quality = row.querySelector('.i-quality').value;
   const rateInput = row.querySelector('.i-rate');
-
   if (category && category !== 'other' && size && quality) {
-    if (!activePriceSheetId) {
-      // No price sheet selected — leave rate for manual entry, no message spam
-    } else {
+    if (activePriceSheetId) {
       const rate = getRate(category, size, quality);
       if (rate === null) {
         showToast(`${size} ${quality} isn't in the selected price sheet — enter the rate manually`);
@@ -1905,8 +1832,6 @@ function onSizeOrQualityChange(select) {
   syncItemRow(row);
 }
 
-// Keeps the hidden .i-desc field (used by totals/preview/print) up to date
-// with whatever the user picked or typed.
 function syncItemRow(row) {
   const category = row.querySelector('.i-category').value;
   const descHidden = row.querySelector('.i-desc');
@@ -1915,8 +1840,7 @@ function syncItemRow(row) {
   } else {
     const size = row.querySelector('.i-size').value;
     const quality = row.querySelector('.i-quality').value;
-    const parts = [size, category, quality].filter(Boolean);
-    descHidden.value = parts.join(' ');
+    descHidden.value = [size, category, quality].filter(Boolean).join(' ');
   }
 }
 
@@ -1928,20 +1852,12 @@ function calcItemTotal(input) {
   calcTotals();
 }
 
-// Updates the "Total Items: X | Total Qty: Y" badge above the bill.
-// Items = number of item rows currently in the form, Qty = sum of their quantities.
 function updateItemsQtyBadge() {
   const rows = document.querySelectorAll('.item-row-form');
-  let totalItems = 0;
-  let totalQty = 0;
+  let totalItems = 0, totalQty = 0;
   rows.forEach(row => {
     const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
-    // Only count a row as a real "item" once it actually has a quantity entered,
-    // so an empty freshly-added row doesn't inflate the item count.
-    if (qty > 0) {
-      totalItems++;
-      totalQty += qty;
-    }
+    if (qty > 0) { totalItems++; totalQty += qty; }
   });
   const badge = document.getElementById('items-qty-badge');
   if (badge) badge.textContent = `Total Items: ${totalItems} | Total Qty: ${totalQty}`;
@@ -1962,34 +1878,24 @@ function calcTotals() {
   const gstRate = parseFloat(document.getElementById('f-gst').value) || 9;
   const taxType = document.getElementById('f-taxtype').value;
   let sgst = 0, cgst = 0, igst = 0;
-  if (taxType === 'igst') {
-    igst = taxable * (gstRate * 2) / 100;
-  } else {
-    sgst = taxable * gstRate / 100;
-    cgst = taxable * gstRate / 100;
-  }
+  if (taxType === 'igst') igst = taxable * (gstRate * 2) / 100;
+  else { sgst = taxable * gstRate / 100; cgst = taxable * gstRate / 100; }
   const total = taxable + sgst + cgst + igst;
   const fmt = v => '₹' + v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
   document.getElementById('calc-subtotal').textContent = fmt(subtotal);
   document.getElementById('calc-packing').textContent = fmt(packing);
   document.getElementById('calc-discount').textContent = '- ' + fmt(discountAmt);
   document.getElementById('calc-taxable').textContent = fmt(taxable);
-
-  // Toggle SGST/CGST vs IGST rows based on selected tax type
   const rowSgst = document.getElementById('row-sgst');
   const rowCgst = document.getElementById('row-cgst');
   const rowIgst = document.getElementById('row-igst');
   if (taxType === 'igst') {
-    rowSgst.style.display = 'none';
-    rowCgst.style.display = 'none';
-    rowIgst.style.display = 'flex';
+    rowSgst.style.display = 'none'; rowCgst.style.display = 'none'; rowIgst.style.display = 'flex';
     const igstRateLabel = (gstRate*2) % 1 === 0 ? (gstRate*2).toFixed(0) : (gstRate*2).toFixed(1);
     document.getElementById('lbl-igst').textContent = `IGST ${igstRateLabel}%`;
     document.getElementById('calc-igst').textContent = fmt(igst);
   } else {
-    rowSgst.style.display = 'flex';
-    rowCgst.style.display = 'flex';
-    rowIgst.style.display = 'none';
+    rowSgst.style.display = 'flex'; rowCgst.style.display = 'flex'; rowIgst.style.display = 'none';
     document.getElementById('lbl-sgst').textContent = `SGST ${gstRate}%`;
     document.getElementById('lbl-cgst').textContent = `CGST ${gstRate}%`;
     document.getElementById('calc-sgst').textContent = fmt(sgst);
@@ -1999,18 +1905,16 @@ function calcTotals() {
   updateItemsQtyBadge();
 }
 
+// ================================================================
+// PREVIEW / SAVE INVOICE
+// ================================================================
 function previewInvoice() {
   const items = [];
   document.querySelectorAll('.item-row-form').forEach(row => {
     syncItemRow(row);
     const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
     const rate = parseFloat(row.querySelector('.i-rate').value) || 0;
-    items.push({
-      lot: row.querySelector('.i-lot').value,
-      hsn: row.querySelector('.i-hsn').value,
-      desc: row.querySelector('.i-desc').value,
-      qty, rate, total: qty * rate
-    });
+    items.push({ lot: row.querySelector('.i-lot').value, hsn: row.querySelector('.i-hsn').value, desc: row.querySelector('.i-desc').value, qty, rate, total: qty * rate });
   });
   const subtotal = items.reduce((s,i) => s+i.total, 0);
   const packing = parseFloat(document.getElementById('f-packing').value) || 0;
@@ -2021,12 +1925,8 @@ function previewInvoice() {
   const gstRate = parseFloat(document.getElementById('f-gst').value) || 9;
   const taxType = document.getElementById('f-taxtype').value;
   let sgst = 0, cgst = 0, igst = 0;
-  if (taxType === 'igst') {
-    igst = taxable * (gstRate * 2) / 100;
-  } else {
-    sgst = taxable * gstRate / 100;
-    cgst = taxable * gstRate / 100;
-  }
+  if (taxType === 'igst') igst = taxable * (gstRate * 2) / 100;
+  else { sgst = taxable * gstRate / 100; cgst = taxable * gstRate / 100; }
   const total = taxable + sgst + cgst + igst;
   const invNo = document.getElementById('f-invno').value.trim();
   if (!invNo) { showToast('Please enter an invoice number'); return; }
@@ -2035,6 +1935,7 @@ function previewInvoice() {
     invDate: document.getElementById('f-invdt').value,
     custName: document.getElementById('f-cname').value,
     address: document.getElementById('f-addr').value,
+    phone: document.getElementById('f-phone').value,
     state: document.getElementById('f-state').value,
     stateCode: document.getElementById('f-statecode').value,
     custGSTIN: document.getElementById('f-gstin').value,
@@ -2044,7 +1945,6 @@ function previewInvoice() {
     supplyDt: document.getElementById('f-supply-dt').value,
     items, packing, discountPct, discountAmt, gstRate, taxType, subtotal, taxable, sgst, cgst, igst, total
   };
-  // Save (or update) this invoice in the local list
   const idx = invoices.findIndex(i => String(i.invNo) === String(invNo));
   if (idx >= 0) invoices[idx] = currentInvoice; else invoices.push(currentInvoice);
   saveInvoices();
@@ -2053,7 +1953,9 @@ function previewInvoice() {
   renderInvoiceHTML(currentInvoice);
 }
 
-// ---- INVOICE HTML RENDERER ----
+// ================================================================
+// INVOICE HTML RENDERER — phone row added above State
+// ================================================================
 function renderInvoiceHTML(inv) {
   const fmt = v => v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
   const emptyRows = Math.max(0, 20 - (inv.items||[]).length);
@@ -2071,6 +1973,10 @@ function renderInvoiceHTML(inv) {
   const roundOff = Math.round(inv.total||0) - (inv.total||0);
   const isIgst = inv.taxType === 'igst';
   const igstRateDisplay = (inv.gstRate||9) * 2;
+
+  // Phone row only if phone exists
+  const phoneRow = inv.phone ? `<tr><td>Phone</td><td class="colon">:</td><td>${inv.phone}</td></tr>` : '';
+
   document.getElementById('invoice-render').innerHTML = `
   <div class="inv-box">
     <div class="inv-header">
@@ -2085,6 +1991,7 @@ function renderInvoiceHTML(inv) {
         <table>
           <tr><td>Name</td><td class="colon">:</td><td>${inv.custName||''}</td></tr>
           <tr><td>Address</td><td class="colon">:</td><td>${(inv.address||'').replace(/\n/g,'<br>')}</td></tr>
+          ${phoneRow}
           <tr><td>State</td><td class="colon">:</td><td>${inv.state||''}</td></tr>
           <tr><td>State Code</td><td class="colon">:</td><td>${inv.stateCode||''}</td></tr>
           <tr><td>GSTIN No</td><td class="colon">:</td><td>${inv.custGSTIN||''}</td></tr>
@@ -2165,7 +2072,9 @@ function renderInvoiceHTML(inv) {
   </div>`;
 }
 
-// ---- NUMBER TO WORDS ----
+// ================================================================
+// NUMBER TO WORDS
+// ================================================================
 function numberToWords(n) {
   if (n === 0) return 'Zero';
   const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
@@ -2181,7 +2090,9 @@ function numberToWords(n) {
   return words(n);
 }
 
-// ---- PRINT ----
+// ================================================================
+// PRINT / PDF
+// ================================================================
 function printInvoice() {
   const content = document.getElementById('invoice-render').innerHTML;
   const w = window.open('', '_blank');
@@ -2251,51 +2162,24 @@ function savePDF() {
     return;
   }
   showToast('Generating PDF…');
-
   const source = document.getElementById('invoice-render').querySelector('.inv-box');
   if (!source) { showToast('Nothing to export'); return; }
-
-  // Render the invoice off-screen at a fixed width so the output is
-  // consistent regardless of the device's screen size, then snapshot it.
-  const renderWidth = 760; // px, gives a crisp but not huge canvas at A4 proportions
+  const renderWidth = 760;
   const clone = source.cloneNode(true);
   const wrapper = document.createElement('div');
-  wrapper.style.position = 'fixed';
-  wrapper.style.left = '-9999px';
-  wrapper.style.top = '0';
-  wrapper.style.width = renderWidth + 'px';
-  wrapper.style.background = '#ffffff';
+  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + renderWidth + 'px;background:#ffffff';
   wrapper.appendChild(clone);
   document.body.appendChild(wrapper);
-
   html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
     .then(canvas => {
       document.body.removeChild(wrapper);
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 8; // mm — a bit more breathing room, less stretch distortion
-      const usableWidth = pageWidth - margin * 2;
-      const usableHeight = pageHeight - margin * 2;
-
-      // Stretch the invoice to fill the entire usable page area (width AND
-      // height) so it fills the printed page edge-to-edge, matching how a
-      // one-page invoice should look when printed. We deliberately do not
-      // preserve the canvas aspect ratio here — a few percent of stretch is
-      // visually unnoticeable on a text/table layout like this, and filling
-      // the page is what the user actually wants.
-      const renderW = usableWidth;
-      const renderH = usableHeight;
-      const x = margin;
-      const y = margin;
-
-      const imgData = canvas.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', x, y, renderW, renderH);
-
-      const fname = `Invoice_${currentInvoice.invNo || 'draft'}_${config.coName.replace(/\s+/g,'_')}.pdf`;
-      pdf.save(fname);
+      const margin = 8;
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, pageWidth - margin*2, pageHeight - margin*2);
+      pdf.save(`Invoice_${currentInvoice.invNo || 'draft'}_${config.coName.replace(/\s+/g,'_')}.pdf`);
       showToast('PDF downloaded ✓');
     })
     .catch(err => {
@@ -2305,7 +2189,9 @@ function savePDF() {
     });
 }
 
-// ---- TOAST ----
+// ================================================================
+// TOAST / DATE / INIT
+// ================================================================
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -2313,7 +2199,6 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// ---- SET TODAY's DATE ----
 function setTodayDate() {
   const today = new Date();
   const dd = String(today.getDate()).padStart(2,'0');
@@ -2322,7 +2207,6 @@ function setTodayDate() {
   document.getElementById('f-invdt').value = `${yyyy}-${mm}-${dd}`;
 }
 
-// ---- INIT ----
 window.onload = () => {
   loadConfig();
   setTodayDate();
