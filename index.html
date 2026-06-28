@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a3a5c">
+<title>Jaya Enterprises — Invoices</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --brand: #1a3a5c;
+    --brand-light: #e8f0f8;
+    --accent: #2563a8;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warn: #d97706;
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ---- NAV ---- */
+  .topbar { background: var(--brand); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { color: #fff; font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
+  .topbar .sub { color: rgba(255,255,255,0.6); font-size: 11px; margin-top: 1px; }
+
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; }
+  .nav-btn { flex: 1; padding: 10px 0 8px; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 11px; font-weight: 500; }
+  .nav-btn.active { color: var(--accent); }
+  .nav-icon { font-size: 22px; }
+
+  /* ---- SCREENS ---- */
+  .screen { display: none; padding: 16px 16px 88px; }
+  .screen.active { display: block; }
+
+  /* ---- STAT CARDS ---- */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .stat { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .stat .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat .val { font-size: 24px; font-weight: 700; color: var(--text); }
+  .stat .sub-val { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ---- QUICK ACTIONS ---- */
+  .section-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .quick-btn { background: var(--surface); border: none; border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; box-shadow: var(--shadow); }
+  .quick-btn:active { background: var(--brand-light); }
+  .quick-btn .qicon { font-size: 28px; }
+  .quick-btn span { font-size: 13px; font-weight: 600; color: var(--text); text-align: center; }
+
+  /* ---- INVOICE LIST ---- */
+  .inv-list { display: flex; flex-direction: column; gap: 10px; }
+  .inv-card { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .inv-card:active { background: var(--brand-light); }
+  .inv-card .inv-main { flex: 1; }
+  .inv-card .inv-num { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .inv-card .inv-name { font-size: 15px; font-weight: 600; color: var(--text); margin: 2px 0; }
+  .inv-card .inv-date { font-size: 12px; color: var(--muted); }
+  .inv-card .inv-amount { text-align: right; }
+  .inv-card .inv-total { font-size: 16px; font-weight: 700; color: var(--text); }
+  .inv-card .inv-items { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .inv-card .inv-arrow { color: var(--muted); font-size: 18px; margin-left: 8px; }
+
+  /* ---- SEARCH ---- */
+  .search-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14px; width: 100%; margin-bottom: 14px; outline: none; }
+  .search-bar:focus { border-color: var(--accent); }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; }
+  .filter-chip { white-space: nowrap; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-weight: 500; cursor: pointer; }
+  .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ---- INVOICE PREVIEW ---- */
+  .inv-preview-wrap { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .inv-preview-actions { display: flex; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .act-btn { flex: 1; padding: 11px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .act-btn.print { background: var(--accent); color: #fff; }
+  .act-btn.pdf { background: var(--brand-light); color: var(--accent); }
+  .act-btn:active { opacity: 0.85; }
+
+  /* ---- TAX INVOICE PRINT FORMAT ---- */
+  #invoice-render { padding: 16px; font-family: Arial, sans-serif; font-size: 11px; }
+  .inv-box { border: 1.5px solid #333; }
+  .inv-header { text-align: center; padding: 8px 6px 6px; border-bottom: 1px solid #333; }
+  .inv-header .co-name { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+  .inv-header .co-addr { font-size: 10px; line-height: 1.6; margin-top: 2px; }
+  .inv-header .co-gstin { font-size: 11px; font-weight: 600; margin-top: 3px; }
+  .inv-title-row { text-align: center; padding: 5px; font-size: 13px; font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid #333; }
+  .inv-details-row { display: flex; border-bottom: 1px solid #333; }
+  .inv-receiver { flex: 1.2; padding: 7px 8px; border-right: 1px solid #333; font-size: 10.5px; }
+  .inv-receiver .section-hdr { font-size: 10px; font-weight: 700; margin-bottom: 5px; text-decoration: underline; }
+  .inv-receiver table { width: 100%; border-collapse: collapse; }
+  .inv-receiver td { padding: 1.5px 0; vertical-align: top; }
+  .inv-receiver td:first-child { white-space: nowrap; min-width: 70px; font-weight: 600; }
+  .inv-receiver td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; }
+  .inv-meta { flex: 1; padding: 7px 8px; font-size: 10.5px; }
+  .inv-meta table { width: 100%; border-collapse: collapse; }
+  .inv-meta td { padding: 1.5px 0; vertical-align: middle; }
+  .inv-meta td:first-child { white-space: nowrap; font-weight: 600; min-width: 90px; }
+  .inv-meta td.colon { white-space: nowrap; text-align: center; width: 14px; padding: 1.5px 2px; font-weight: 600; vertical-align: middle; }
+  .inv-meta td:last-child { text-align: center; }
+  .items-table { width: 100%; border-collapse: collapse; border-bottom: 1px solid #333; }
+  .items-table th { background: #f5f5f5; padding: 5px 6px; font-size: 10px; text-align: center; border-right: 1px solid #333; border-bottom: 1px solid #333; font-weight: 700; }
+  .items-table th:last-child { border-right: none; }
+  .items-table td { padding: 4px 6px; font-size: 10px; text-align: center; border-right: 1px solid #333; vertical-align: top; }
+  .items-table td.desc { text-align: left; }
+  .items-table td:last-child { border-right: none; }
+  .items-table tr.item-row td { height: 28px; border-bottom: 0.5px solid #eee; }
+  .items-table tr.empty-row td { height: 28px; border-bottom: 0.5px solid #f0f0f0; }
+  .inv-footer { display: flex; border-bottom: 1px solid #333; }
+  .inv-words { flex: 1.2; padding: 7px 8px; border-right: 1px solid #333; font-size: 10px; }
+  .inv-words .words-label { font-weight: 700; margin-bottom: 3px; }
+  .inv-words .words-val { font-size: 10.5px; line-height: 1.5; }
+  .inv-words .bank-info { margin-top: 8px; font-size: 10px; }
+  .inv-words .bank-info table { border-collapse: collapse; }
+  .inv-words .bank-info td { padding: 1px 0; vertical-align: top; }
+  .inv-words .bank-info td:first-child { min-width: 50px; font-weight: 600; }
+  .inv-totals { flex: 1; padding: 7px 8px; }
+  .inv-totals table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  .inv-totals td { padding: 2px 3px; }
+  .inv-totals td:last-child { text-align: right; font-weight: 600; }
+  .inv-totals tr.final { font-weight: 700; font-size: 11.5px; border-top: 1px solid #333; }
+  .inv-totals tr.final td { padding-top: 4px; }
+  .inv-declaration { padding: 6px 8px; font-size: 9px; line-height: 1.5; color: #333; border-bottom: 1px solid #333; }
+  .inv-declaration b { font-size: 9.5px; }
+  .inv-sign-row { display: flex; }
+  .inv-eref { flex: 1.2; padding: 7px 8px; border-right: 1px solid #333; font-size: 10px; }
+  .inv-eref .eref-label { font-weight: 600; margin-bottom: 3px; }
+  .inv-sign { flex: 1; padding: 7px 8px; text-align: right; }
+  .inv-sign .for-line { font-size: 10.5px; font-weight: 600; margin-bottom: 28px; }
+  .inv-sign .auth-line { font-size: 10px; border-top: 0.5px solid #999; padding-top: 3px; }
+
+  /* ---- SETTINGS ---- */
+  .settings-section { background: var(--surface); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; box-shadow: var(--shadow); }
+  .settings-section h3 { padding: 14px 16px 10px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  .setting-row { padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 14px; font-weight: 500; }
+  .setting-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .setting-val { font-size: 13px; color: var(--accent); font-weight: 500; }
+  .setting-input { border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; width: 180px; }
+  .save-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 20px; font-size: 14px; font-weight: 600; cursor: pointer; display: block; width: 100%; margin-top: 14px; }
+  .save-btn:active { opacity: 0.85; }
+
+  /* ---- LOADING / EMPTY ---- */
+  .loading { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+  .empty { text-align: center; padding: 40px 20px; }
+  .empty .eicon { font-size: 48px; margin-bottom: 12px; }
+  .empty p { color: var(--muted); font-size: 14px; }
+
+  /* ---- TOAST ---- */
+  #toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---- NEW INVOICE FORM ---- */
+  .form-section { background: var(--surface); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .form-section h3 { font-size: 14px; font-weight: 700; color: var(--brand); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; outline: none; font-family: inherit; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .item-row-form { background: var(--bg); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; }
+  .item-row-form .remove-item { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--danger); font-size: 18px; cursor: pointer; padding: 2px; }
+  .add-item-btn { width: 100%; padding: 11px; border: 1.5px dashed var(--accent); background: var(--brand-light); border-radius: 10px; color: var(--accent); font-size: 14px; font-weight: 600; cursor: pointer; }
+  .submit-inv-btn { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+  .submit-inv-btn:active { opacity: 0.85; }
+
+  /* ---- CUSTOMER AUTOCOMPLETE ---- */
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1.5px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(37,99,168,0.18);
+    z-index: 200;
+    max-height: 280px;
+    overflow-y: auto;
+    display: none;
+  }
+  .autocomplete-dropdown.open { display: block; }
+  .ac-item {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:active, .ac-item.highlighted { background: var(--brand-light); }
+  .ac-item .ac-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .ac-item .ac-detail { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ac-item .ac-match { color: var(--accent); }
+  .ac-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  @media print {
+    body > *:not(#print-area) { display: none !important; }
+    #print-area { display: block !important; }
+    #invoice-render { padding: 0; font-size: 10px; }
+    .inv-box { border: 1px solid #000; }
+  }
+</style>
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+ <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/pwabuilder-sw.js')
+        .then((reg) => { console.log('Service Worker registered!', reg.scope); })
+        .catch((err) => { console.error('SW reg failed:', err); });
+    });
+  }
+</script>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar h1" style="color:#fff;font-size:17px;font-weight:600;">🏢 Jaya Enterprises</div>
+    <div class="sub">Tax Invoice Manager</div>
+  </div>
+</div>
+
+<!-- SCREENS -->
+<div id="screen-home" class="screen active">
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Total invoices</div>
+      <div class="val" id="stat-count">—</div>
+      <div class="sub-val">all time</div>
+    </div>
+    <div class="stat">
+      <div class="label">This month</div>
+      <div class="val" id="stat-month">—</div>
+      <div class="sub-val" id="stat-month-amt">₹0</div>
+    </div>
+  </div>
+
+  <div class="section-title">Quick actions</div>
+  <div class="quick-actions">
+    <button class="quick-btn" onclick="showScreen('new')">
+      <span class="qicon">📄</span>
+      <span>New Invoice</span>
+    </button>
+    <button class="quick-btn" onclick="showScreen('history')">
+      <span class="qicon">📋</span>
+      <span>Bill History</span>
+    </button>
+    <button class="quick-btn" onclick="showScreen('settings')">
+      <span class="qicon">⚙️</span>
+      <span>Settings</span>
+    </button>
+    <button class="quick-btn" onclick="showScreen('pricesheets')">
+      <span class="qicon">🏷️</span>
+      <span>Price Sheets</span>
+    </button>
+  </div>
+
+  <div class="section-title">Recent bills</div>
+  <div id="recent-list" class="inv-list">
+    <div class="loading">Loading invoices…</div>
+  </div>
+</div>
+
+<div id="screen-new" class="screen">
+  <div class="form-section">
+    <h3>📋 Invoice Details</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Invoice No</label>
+        <input type="number" id="f-invno" placeholder="e.g. 31">
+      </div>
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" id="f-invdt">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>No. of Bundles</label>
+        <input type="number" id="f-bundles" placeholder="2">
+      </div>
+      <div class="form-group">
+        <label>Mode of Transport</label>
+        <input type="text" id="f-transport" placeholder="Kathiravan">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>LR No</label>
+        <input type="text" id="f-lrno" placeholder="LR number">
+      </div>
+      <div class="form-group">
+        <label>Date &amp; Time of Supply</label>
+        <input type="text" id="f-supply-dt" placeholder="13-06-26 10:00">
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3>👤 Receiver Details</h3>
+
+    <!-- Customer Name with Autocomplete -->
+    <div class="form-group">
+      <label>Customer Name</label>
+      <div class="autocomplete-wrap">
+        <input type="text" id="f-cname" placeholder="Type to search customers…" autocomplete="off"
+          oninput="onCustomerNameInput(this.value)"
+          onkeydown="onCustomerNameKeydown(event)"
+          onfocus="onCustomerNameInput(this.value)"
+          onblur="scheduleCloseDropdown()">
+        <div class="autocomplete-dropdown" id="customer-dropdown"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Address</label>
+      <textarea id="f-addr" rows="2" placeholder="35, 1st Floor, Printhavan Salai, Contenment, Trichy - 1"></textarea>
+    </div>
+
+    <!-- Phone Number — above State -->
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" id="f-phone" placeholder="9842418340">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>State</label>
+        <select id="f-state" onchange="onStateChange(this.value)">
+          <option value="">— Select State —</option>
+          <option value="Tamil Nadu">Tamil Nadu</option>
+          <option value="Karnataka">Karnataka</option>
+          <option value="Andhra Pradesh">Andhra Pradesh</option>
+          <option value="Telangana">Telangana</option>
+          <option value="Kerala">Kerala</option>
+          <option value="Puducherry">Puducherry</option>
+          <option value="Lakshadweep">Lakshadweep</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>State Code</label>
+        <input type="text" id="f-statecode" placeholder="33" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>GSTIN No</label>
+      <input type="text" id="f-gstin" placeholder="33AONPK3546G1ZX" oninput="onGstinInput(this.value)">
+    </div>
+  </div>
+
+  <div class="form-section" id="ps-selector-section">
+    <h3>🏷️ Price Sheet</h3>
+    <div class="form-group">
+      <label>Active Price Sheet (auto-fills rates)</label>
+      <select id="f-pricesheet" onchange="onPriceSheetSelect(this.value)">
+        <option value="">— None (manual rate entry) —</option>
+      </select>
+    </div>
+    <div id="f-pricesheet-hint" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+  </div>
+
+  <div class="form-section">
+    <h3>📦 Items</h3>
+    <div id="items-container">
+      <div class="item-row-form" id="item-0">
+        <button class="remove-item" onclick="removeItem(0)" style="display:none">✕</button>
+        <input type="hidden" class="i-lot" value="">
+        <input type="hidden" class="i-hsn" value="4817">
+        <div class="form-group">
+          <label>Item Type</label>
+          <select class="i-category" onchange="onCategoryChange(this)">
+            <option value="">— Select —</option>
+            <option value="Standard Envelope">Standard Envelope</option>
+            <option value="2&quot; Box Envelope">2" Box Envelope</option>
+            <option value="other">Other (type manually)</option>
+          </select>
+        </div>
+        <div class="form-row i-dropdown-row">
+          <div class="form-group">
+            <label>Size</label>
+            <select class="i-size" onchange="onSizeOrQualityChange(this)">
+              <option value="">— Select —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quality</label>
+            <select class="i-quality" onchange="onSizeOrQualityChange(this)">
+              <option value="">— Select —</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group i-other-row" style="display:none">
+          <label>Description of Goods</label>
+          <input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))">
+        </div>
+        <input type="hidden" class="i-desc">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity</label>
+            <input type="number" class="i-qty" placeholder="2100" oninput="calcItemTotal(this)">
+          </div>
+          <div class="form-group">
+            <label>Rate (₹)</label>
+            <input type="number" step="0.01" class="i-rate" placeholder="4.35" oninput="calcItemTotal(this)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Total Amount</label>
+          <input type="text" class="i-total" placeholder="Auto-calculated" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;">
+        </div>
+      </div>
+    </div>
+    <button class="add-item-btn" onclick="addItem()">+ Add Another Item</button>
+  </div>
+
+  <div class="form-section">
+    <h3>💰 Packing &amp; Tax</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Packing Charges (₹)</label>
+        <input type="number" id="f-packing" placeholder="0" value="0" inputmode="numeric" oninput="calcTotals()">
+      </div>
+      <div class="form-group">
+        <label>Discount (%)</label>
+        <input type="number" step="0.01" id="f-discount" placeholder="0" value="0" inputmode="decimal" oninput="calcTotals()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>GST Rate (%)</label>
+        <select id="f-gst" onchange="calcTotals()">
+          <option value="9">9% (CGST 9% + SGST 9%)</option>
+          <option value="6">6%</option>
+          <option value="2.5">2.5%</option>
+          <option value="0">0%</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tax Type</label>
+        <select id="f-taxtype" onchange="calcTotals()">
+          <option value="cgst_sgst">CGST + SGST (Intra-state)</option>
+          <option value="igst">IGST (Inter-state)</option>
+        </select>
+      </div>
+    </div>
+    <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;">
+      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Subtotal</span><span id="calc-subtotal">₹0.00</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Packing</span><span id="calc-packing">₹0.00</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--danger)"><span>Discount</span><span id="calc-discount">- ₹0.00</span></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Taxable Value</span><span id="calc-taxable" style="font-weight:600">₹0.00</span></div>
+      <div id="row-sgst" style="display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)"><span id="lbl-sgst">SGST 9%</span><span id="calc-sgst">₹0.00</span></div>
+      <div id="row-cgst" style="display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)"><span id="lbl-cgst">CGST 9%</span><span id="calc-cgst">₹0.00</span></div>
+      <div id="row-igst" style="display:none;justify-content:space-between;padding:3px 0;color:var(--muted)"><span id="lbl-igst">IGST 18%</span><span id="calc-igst">₹0.00</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0 0;font-size:16px;font-weight:700;border-top:1px solid var(--border);margin-top:4px;color:var(--accent)"><span>INVOICE TOTAL</span><span id="calc-total">₹0.00</span></div>
+    </div>
+  </div>
+
+  <div style="background:var(--surface);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+    <div id="items-qty-badge" style="font-size:13px;color:var(--muted);font-weight:500;">Total Items: — | Total Qty: —</div>
+    <button onclick="clearEntireBill()" style="background:none;border:1.5px solid var(--danger);color:var(--danger);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;">🗑 Clear Bill</button>
+  </div>
+  <button class="submit-inv-btn" id="submit-inv-btn" onclick="previewInvoice()">👁 Preview &amp; Print Invoice</button>
+</div>
+
+<div id="screen-history" class="screen">
+  <input class="search-bar" type="search" id="search-input" placeholder="🔍 Search by name, invoice no…" oninput="filterInvoices()">
+  <div class="filter-row" id="filter-row">
+    <div class="filter-chip active" onclick="setFilter('all', this)">All</div>
+    <div class="filter-chip" onclick="setFilter('thismonth', this)">This month</div>
+    <div class="filter-chip" onclick="setFilter('last3', this)">Last 3 months</div>
+    <div class="filter-chip" onclick="setFilter('thisyear', this)">This year</div>
+  </div>
+  <div id="history-list" class="inv-list">
+    <div class="loading">Loading…</div>
+  </div>
+</div>
+
+<div id="screen-preview" class="screen">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <button onclick="goBackFromPreview()" style="background:var(--brand-light);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--accent);cursor:pointer;">← Back</button>
+    <button onclick="editFromPreview()" style="background:var(--warn);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:#fff;cursor:pointer;">✏️ Edit Invoice</button>
+  </div>
+  <div class="inv-preview-wrap">
+    <div class="inv-preview-actions">
+      <button class="act-btn print" onclick="printInvoice()">🖨 Print</button>
+      <button class="act-btn pdf" onclick="savePDF()">📄 Save PDF</button>
+    </div>
+    <div id="invoice-render"></div>
+  </div>
+</div>
+
+<div id="screen-settings" class="screen">
+  <div class="settings-section">
+    <h3>Data Backup</h3>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Your invoices</div>
+        <div class="setting-sub">Stored on this device only</div>
+      </div>
+    </div>
+    <div style="padding:0 16px 12px;display:flex;gap:10px">
+      <button class="save-btn" style="flex:1;margin:0" onclick="exportData()">⬇️ Export Backup</button>
+      <button class="save-btn" style="flex:1;margin:0;background:var(--brand-light);color:var(--accent)" onclick="document.getElementById('import-file-input').click()">⬆️ Import Backup</button>
+      <input type="file" id="import-file-input" accept="application/json" style="display:none" onchange="importData(this.files[0])">
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>Printer</h3>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Print method</div>
+        <div class="setting-sub">Uses system print dialog (Wi-Fi printer)</div>
+      </div>
+      <div class="setting-val">Wi-Fi ✓</div>
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>Company Info</h3>
+    <div style="padding:0 16px 12px">
+      <div class="form-group"><label>Company Name</label><input class="setting-input" id="cfg-coname" value="JAYA ENTERPRISES" style="width:100%"></div>
+      <div class="form-group"><label>Address Line 1</label><input class="setting-input" id="cfg-addr1" value="68/6 - Middle Street, Chatrapatti - 626 102" style="width:100%"></div>
+      <div class="form-group"><label>Address Line 2</label><input class="setting-input" id="cfg-addr2" value="(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu" style="width:100%"></div>
+      <div class="form-group"><label>GSTIN</label><input class="setting-input" id="cfg-gstin" value="33CDQPK3907D1ZO" style="width:100%"></div>
+      <div class="form-group"><label>Bank Name</label><input class="setting-input" id="cfg-bank" value="State Bank Of India" style="width:100%"></div>
+      <div class="form-group"><label>Branch</label><input class="setting-input" id="cfg-branch" value="Rajapalayam Town Branch" style="width:100%"></div>
+      <div class="form-group"><label>A/C No</label><input class="setting-input" id="cfg-acno" value="67182959710" style="width:100%"></div>
+      <div class="form-group"><label>IFSC</label><input class="setting-input" id="cfg-ifsc" value="SBIN0070819" style="width:100%"></div>
+    </div>
+  </div>
+  <div style="padding:0 16px">
+    <button class="save-btn" onclick="saveSettings()">💾 Save Settings</button>
+  </div>
+  <div style="padding:16px;text-align:center">
+    <p style="font-size:12px;color:var(--muted)">Jaya Enterprises Invoice App v1.0<br>Built for Galaxy Tab A7 Lite</p>
+  </div>
+</div>
+
+<div id="screen-pricesheets" class="screen">
+  <!-- LIST VIEW -->
+  <div id="ps-list-view">
+    <div class="section-title">Saved price sheets</div>
+    <div id="ps-list" class="inv-list">
+      <div class="empty"><div class="eicon">🏷️</div><p>No price sheets yet.<br>Make one from your vendor's PDF.</p></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="add-item-btn" style="flex:1" onclick="startNewPriceSheet()">+ New Price Sheet</button>
+      <button class="add-item-btn" style="flex:1;border-color:var(--success);color:var(--success)" onclick="document.getElementById('ps-reimport-input').click()">📥 Re-import PDF</button>
+      <input type="file" id="ps-reimport-input" accept="application/pdf" style="display:none" onchange="reimportPriceSheetPdf(this.files[0]);this.value=''">
+    </div>
+    <div id="ps-reimport-status" style="font-size:12px;color:var(--muted);margin-top:6px;text-align:center"></div>
+  </div>
+
+  <!-- BUILDER VIEW -->
+  <div id="ps-builder-view" style="display:none">
+    <div class="form-section">
+      <h3>📥 Step 1 — Import Vendor Sheet</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Upload the vendor's price sheet PDF (same layout as your standard sheet — sizes and sections, just different numbers).</p>
+      <button class="quick-btn" style="width:100%;flex-direction:row;justify-content:center;padding:12px" onclick="document.getElementById('ps-pdf-input').click()">
+        <span class="qicon" style="font-size:20px">📄</span><span>Choose PDF…</span>
+      </button>
+      <input type="file" id="ps-pdf-input" accept="application/pdf" style="display:none" onchange="importVendorPdf(this.files[0])">
+      <div id="ps-import-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+    </div>
+
+    <div class="form-section">
+      <h3>✏️ Vendor Rates</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Imported automatically — fix anything that looks off before continuing.</p>
+      <div id="ps-vendor-grid"></div>
+    </div>
+
+    <div class="form-section">
+      <h3>⚖️ Step 2 — Quality Groups</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Group qualities that get the same % decrease then % increase off the vendor price. Every quality needs a group.</p>
+      <div id="ps-groups-list"></div>
+      <button class="add-item-btn" onclick="addGroup()">+ Add Group</button>
+    </div>
+
+    <div class="form-section">
+      <h3>👁 Step 3 — Your Computed Price Sheet</h3>
+      <div id="ps-computed-preview" style="font-size:12px;color:var(--muted)">Fill in vendor rates and groups above to see your prices here.</div>
+    </div>
+
+    <div class="form-section">
+      <h3>💾 Save</h3>
+      <div class="form-group">
+        <label>Price Sheet Name</label>
+        <input type="text" id="ps-name-input" placeholder="e.g. June 2026 Rates">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="save-btn" style="flex:1;margin:0" onclick="openPsSaveModal()">💾 Save Price Sheet</button>
+        <button class="save-btn" style="flex:1;margin:0;background:var(--brand-light);color:var(--accent)" onclick="cancelPriceSheetBuilder()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="showScreen('home')">
+    <span class="nav-icon">🏠</span>Home
+  </button>
+  <button class="nav-btn" id="nav-new" onclick="showScreen('new')">
+    <span class="nav-icon">➕</span>New
+  </button>
+  <button class="nav-btn" id="nav-history" onclick="showScreen('history')">
+    <span class="nav-icon">📋</span>History
+  </button>
+  <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')">
+    <span class="nav-icon">⚙️</span>Settings
+  </button>
+</nav>
+
+<!-- PDF COLUMN SELECT MODAL -->
+<div id="ps-download-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="font-size:16px;font-weight:700;color:var(--brand);margin-bottom:6px">📄 Download Price Sheet PDF</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Choose which quality columns to include:</div>
+    <div id="ps-col-checks" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:10px">
+      <button class="save-btn" style="flex:1;margin:0" onclick="confirmPsDownload()">⬇️ Download PDF</button>
+      <button class="save-btn" style="flex:1;margin:0;background:var(--brand-light);color:var(--accent)" onclick="closePsDownloadModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SAVE PRICE SHEET MODAL -->
+<div id="ps-save-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="font-size:16px;font-weight:700;color:var(--brand);margin-bottom:14px">💾 Save Price Sheet</div>
+    <div class="form-group">
+      <label>Price Sheet Name</label>
+      <input type="text" id="ps-save-name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <button class="save-btn" style="margin:0" onclick="doSavePriceSheet('overwrite')">💾 Save (overwrite)</button>
+      <button class="save-btn" style="margin:0;background:var(--brand-light);color:var(--accent)" onclick="doSavePriceSheet('copy')">📋 Save as New Copy</button>
+      <button class="save-btn" style="margin:0;background:#f8fafc;color:var(--muted)" onclick="closePsSaveModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ================================================================
+// CUSTOMER DATABASE — from PDF
+// ================================================================
+const CUSTOMER_DB = [
+  { name: 'Anna Paper Industry', address: 'Sahaya Road, Elthuruth, Laloor, Thrissur - 680 611', state: 'Kerala', stateCode: '32', gstin: '32AHXPJ1745R1ZL', phone: '9447240450' },
+  { name: 'PRANAVAM', address: '64/414, Mathi Majooran Road, Near Old Railway Station, Ernakulam, Kochi - 682018', state: 'Kerala', stateCode: '32', gstin: '32CQHPM9062M1ZD', phone: '9847991972' },
+  { name: 'Newlips Book Shop', address: '35, 1st Floor, Printhavan Salai, Contenment, Trichy - 1', state: 'Tamil Nadu', stateCode: '33', gstin: '33AONPK3546G1ZX', phone: '9842418340' },
+  { name: 'Prabhat Industries', address: 'Hagem Complex, Paikkadda Road, Kollam', state: 'Kerala', stateCode: '32', gstin: '32AACFP4680R1ZR', phone: '9400594050' },
+  { name: 'FRANGIES ASSOCIATES', address: '73/160, Popular Road, Vaduthala P.O, Ernakulam', state: 'Kerala', stateCode: '32', gstin: '32AAGFF7623N1Z8', phone: '7012014255' },
+  { name: 'MURUGESH PAPER TRADERS', address: '67/10712, Sreeshagriha Sankulam, T.D. West Road, T.D. West End, Ernakulam, Kochi - 682 035', state: 'Kerala', stateCode: '32', gstin: '32ABEFM6535D1ZL', phone: '9846080768' },
+  { name: 'Best Paper Mart', address: 'Broadway Lane, Mather Bazar, Ernakulam, Kochi - 682 031', state: 'Kerala', stateCode: '32', gstin: '32AAIFB7149P1Z1', phone: '8129293040' },
+  { name: 'Kallupurackal Paper Mart', address: 'Kallupurackal Building, Hozhichant Road, Old Market, Kottayam', state: 'Kerala', stateCode: '32', gstin: '32AAFFK2975D1ZK', phone: '9446195743' },
+  { name: 'P.I.KAKKU & SON', address: 'ROOM NO : 35/633, Office Stationery, Printed Books, East Bazar - Thrissur, Kerala - 680001', state: 'Kerala', stateCode: '32', gstin: '32AAJFP5958R2ZC', phone: '7736830858' },
+  { name: 'Marundeeshwara Offset Printers', address: '240, 3 Third Main Road, Burma Colony, Perungudi, Chennai - 600 096', state: 'Tamil Nadu', stateCode: '33', gstin: '33BDMPP3206K1ZH', phone: '9840334574' },
+  { name: 'SM Paper Mart', address: 'Rice Bazaar, Kunnamkulam', state: 'Kerala', stateCode: '32', gstin: '32ABHFS1292E1ZE', phone: '9447146460' },
+  { name: 'J.J.Book Centre', address: 'Jews Street, Ernakulam, Kerala', state: 'Kerala', stateCode: '32', gstin: '32AENPJ1356F1ZR', phone: '9447061019' },
+  { name: 'JULIE DISTRIBUTORS', address: 'Ground Floor, Falcon Infrastructure Bldg, North Kalamassery, Ernakulam - 683501', state: 'Kerala', stateCode: '32', gstin: '32CCYPJ32801Z0', phone: '7736628443' },
+  { name: 'Swapna Paper Stationary', address: '40/477 - A, Muslim Street, Opp. Milton Guest House, Ernakulam, Cochin', state: 'Kerala', stateCode: '32', gstin: '32AEUPG9629R1ZI', phone: '9388603128' },
+  { name: 'BLUE MOON PAPER MART', address: 'Room No:5/41-A, Parempadam, Kunnamkulam, Thrissur Dt 680519', state: 'Tamil Nadu', stateCode: '33', gstin: '32AJFPH5752A1Z5', phone: '9037054150' },
+  { name: 'Moothi Agencies', address: '590, Oppanakkara Veethi, Covai', state: 'Tamil Nadu', stateCode: '33', gstin: '33AEAPD6469C1ZY', phone: '9489790174' },
+  { name: 'Jain Paper Mart', address: 'Mather Bazar, Broadway Lane, Ernakulam, Kochi - 682 031', state: 'Kerala', stateCode: '32', gstin: '32AAGFJ0965P1Z1', phone: '9846358866' },
+  { name: 'Jai Enterprise', address: 'No. 49/1 Anga muthu naickan street, Royapettah, Chennai - 600014', state: 'Tamil Nadu', stateCode: '33', gstin: '33BMVPD0722Q3ZO', phone: '7603842513' },
+  { name: 'Premier Office Stationery', address: 'Premier Tower, South Bazaar, Thrissur', state: 'Kerala', stateCode: '32', gstin: '32AGBPG2021Q1ZR', phone: '9446723615' },
+  { name: 'Fine Papermart', address: 'Mother Bazar, Broadway, Ernakulam', state: 'Kerala', stateCode: '32', gstin: '32AACFF1647E1ZZ', phone: '9961001315' },
+  { name: 'JASMINE GRAFIX', address: '39/3323, K.S.N. MENON ROAD, KOCHI - 682016', state: 'Kerala', stateCode: '32', gstin: '32ADKPS8229E1ZF', phone: '9447069770' },
+  { name: 'Essay Books', address: 'SSV College Road, Airapuram, Valayanchirangara (PO), Perumbavoor', state: 'Kerala', stateCode: '32', gstin: '32BOFPS6858Q1ZO', phone: '9995456702' },
+  { name: 'CREATOR GRAPHICS', address: '3/246C, Anna Nagar, Kulathur, Near L&T Byepass, Venkittapuram, Coimbatore - 641 062', state: 'Tamil Nadu', stateCode: '33', gstin: '33AAFFC4942E1ZT', phone: '9843051712' },
+  { name: 'Indian Stationeries', address: '56/23-B R G Pudur Pirivu, Chinniampalayam, Coimbatore - 641 062', state: 'Tamil Nadu', stateCode: '33', gstin: '33ATYPR6399G1Z0', phone: '9092906071' },
+  { name: 'RAANAN AGENCIES', address: '99/5, Middle Street, Chatrapatti - 626102', state: 'Tamil Nadu', stateCode: '33', gstin: '33ALRPL0974A1Z8', phone: '7305646599' },
+  { name: 'Tattvam Trading Co.', address: 'South Janata Road, Thammanam PO, Ernakulam - 682 032', state: 'Kerala', stateCode: '32', gstin: '32ANPPR1668B1ZZ', phone: '9048669128' },
+  { name: 'RG Office Stationery', address: '12/2675, Mar Timotheus High Road, Anjchuvilakk, Thrissur - 680001', state: 'Kerala', stateCode: '32', gstin: '32BZEPR8893Q1Z9', phone: '9605337458' },
+  { name: 'Josephson Office Equipments', address: 'Rice Bazaar, Thrissur - 680 001', state: 'Kerala', stateCode: '32', gstin: '32AABFJ8227H2ZJ', phone: '9567725705' },
+  { name: 'Golden Paper Mart', address: 'College Road, Pathanamthitta', state: 'Kerala', stateCode: '32', gstin: '32AADFG7138A1ZZ', phone: '9895040000' },
+];
+
+// ================================================================
+// AUTOCOMPLETE LOGIC
+// ================================================================
+let acHighlightIndex = -1;
+let acCloseTimer = null;
+
+function fuzzyMatch(query, target) {
+  const q = query.toLowerCase().trim();
+  const t = target.toLowerCase();
+  if (!q) return { match: true, score: 0 };
+  if (t.includes(q)) return { match: true, score: 100 - q.length };
+  // Check if all chars of query appear in order in target
+  let qi = 0;
+  for (let i = 0; i < t.length && qi < q.length; i++) {
+    if (t[i] === q[qi]) qi++;
+  }
+  if (qi === q.length) return { match: true, score: 50 };
+  return { match: false, score: 0 };
+}
+
+function highlightMatch(text, query) {
+  if (!query) return text;
+  const q = query.toLowerCase();
+  const t = text.toLowerCase();
+  const idx = t.indexOf(q);
+  if (idx >= 0) {
+    return text.slice(0, idx) + '<span class="ac-match">' + text.slice(idx, idx + q.length) + '</span>' + text.slice(idx + q.length);
+  }
+  return text;
+}
+
+function onCustomerNameInput(val) {
+  const dropdown = document.getElementById('customer-dropdown');
+  acHighlightIndex = -1;
+  const q = val.trim();
+
+  if (!q) {
+    closeDropdown();
+    return;
+  }
+
+  const results = CUSTOMER_DB
+    .map(c => {
+      const nameMatch = fuzzyMatch(q, c.name);
+      const cityMatch = fuzzyMatch(q, c.address);
+      const best = nameMatch.score >= cityMatch.score ? nameMatch : cityMatch;
+      return { customer: c, match: best.match, score: best.score, nameMatched: nameMatch.match };
+    })
+    .filter(r => r.match)
+    .sort((a, b) => {
+      if (a.nameMatched !== b.nameMatched) return a.nameMatched ? -1 : 1;
+      return b.score - a.score;
+    })
+    .slice(0, 6);
+
+  if (!results.length) {
+    dropdown.innerHTML = '<div class="ac-empty">No matching customers</div>';
+    dropdown.classList.add('open');
+    return;
+  }
+
+  dropdown.innerHTML = results.map((r, i) => {
+    const c = r.customer;
+    const nameHtml = highlightMatch(c.name, q);
+    return `<div class="ac-item" data-idx="${i}" onmousedown="selectCustomer(${CUSTOMER_DB.indexOf(c)})">
+      <div class="ac-name">${nameHtml}</div>
+      <div class="ac-detail">${c.phone} · ${c.address.split(',').slice(-1)[0].trim()}</div>
+    </div>`;
+  }).join('');
+  dropdown.classList.add('open');
+}
+
+function onCustomerNameKeydown(e) {
+  const dropdown = document.getElementById('customer-dropdown');
+  const items = dropdown.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acHighlightIndex = Math.min(acHighlightIndex + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === acHighlightIndex));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acHighlightIndex = Math.max(acHighlightIndex - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === acHighlightIndex));
+  } else if (e.key === 'Enter' && acHighlightIndex >= 0) {
+    e.preventDefault();
+    items[acHighlightIndex].dispatchEvent(new MouseEvent('mousedown'));
+  } else if (e.key === 'Escape') {
+    closeDropdown();
+  }
+}
+
+function selectCustomer(dbIdx) {
+  const c = CUSTOMER_DB[dbIdx];
+  if (!c) return;
+  document.getElementById('f-cname').value = c.name;
+  document.getElementById('f-addr').value = c.address;
+  document.getElementById('f-phone').value = c.phone;
+  document.getElementById('f-gstin').value = c.gstin;
+  // Set state
+  const stateSelect = document.getElementById('f-state');
+  stateSelect.value = c.state;
+  document.getElementById('f-statecode').value = c.stateCode;
+  // Auto tax type: our company is Tamil Nadu (33), so if customer is also 33 → intra-state
+  const taxTypeEl = document.getElementById('f-taxtype');
+  taxTypeEl.value = c.stateCode === '33' ? 'cgst_sgst' : 'igst';
+  calcTotals();
+  closeDropdown();
+  showToast(`✓ Filled: ${c.name}`);
+}
+
+function scheduleCloseDropdown() {
+  acCloseTimer = setTimeout(closeDropdown, 180);
+}
+
+function closeDropdown() {
+  if (acCloseTimer) { clearTimeout(acCloseTimer); acCloseTimer = null; }
+  const dropdown = document.getElementById('customer-dropdown');
+  dropdown.classList.remove('open');
+  acHighlightIndex = -1;
+}
+
+// ================================================================
+// STATE ----
+// ================================================================
+let invoices = [];
+let currentInvoice = null;
+let itemCount = 1;
+let filterMode = 'all';
+let config = {
+  coName: 'JAYA ENTERPRISES',
+  addr1: '68/6 - Middle Street, Chatrapatti - 626 102',
+  addr2: '(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu',
+  gstin: '33CDQPK3907D1ZO',
+  bank: 'State Bank Of India', branch: 'Rajapalayam Town Branch',
+  acno: '67182959710', ifsc: 'SBIN0070819'
+};
+
+// ================================================================
+// PRICE SHEET SYSTEM
+// ================================================================
+const QUALITIES = ['REGULAR', 'SONAL', 'FINE', 'SUPER FINE', 'POLYNET'];
+
+const PRICE_SHEET_SKELETON = {
+  'Standard Envelope': ['20x16','18x14','16x12','15x11','14x10','14x10.5','12x10','12x6','12x5','10.5x8','10x8','10x7','9x6','11x5','10.5x4.5','9.5x4.5','7x5','7x4'],
+  '2" Box Envelope': ['20x16','18x14','16x12','15x11','14x10','12x10']
+};
+
+let draftSheet = { vendor: {}, groups: [] };
+let priceSheets = [];
+let activePriceSheetId = null;
+
+function newEmptyVendorSheet() {
+  const v = {};
+  Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
+    v[cat] = {};
+    PRICE_SHEET_SKELETON[cat].forEach(size => { v[cat][size] = [null,null,null,null,null]; });
+  });
+  return v;
+}
+
+function groupForQuality(groups, quality) {
+  return groups.find(g => g.qualities.includes(quality)) || null;
+}
+
+function computeSheet(vendor, groups) {
+  const computed = {};
+  Object.keys(vendor).forEach(cat => {
+    computed[cat] = {};
+    Object.keys(vendor[cat]).forEach(size => {
+      const vendorRates = vendor[cat][size];
+      computed[cat][size] = QUALITIES.map((q, i) => {
+        const vRate = vendorRates[i];
+        if (vRate === null || vRate === undefined || vRate === '') return null;
+        const group = groupForQuality(groups, q);
+        if (!group) return null;
+        const dec = parseFloat(group.decrease) || 0;
+        const inc = parseFloat(group.increase) || 0;
+        const result = vRate * (1 - dec/100) * (1 + inc/100);
+        return Math.round(result * 100) / 100;
+      });
+    });
+  });
+  return computed;
+}
+
+function getRate(category, size, quality) {
+  if (!activePriceSheetId) return null;
+  const sheet = priceSheets.find(s => s.id === activePriceSheetId);
+  if (!sheet || !sheet.computed[category]) return null;
+  const rates = sheet.computed[category][size];
+  if (!rates) return null;
+  const qIdx = QUALITIES.indexOf(quality);
+  if (qIdx === -1) return null;
+  const rate = rates[qIdx];
+  return (rate === null || rate === undefined) ? null : rate;
+}
+
+function loadPriceSheets() {
+  try { const saved = localStorage.getItem('jayaPriceSheets'); if (saved) priceSheets = JSON.parse(saved); } catch(e) { priceSheets = []; }
+  try { activePriceSheetId = localStorage.getItem('jayaActivePriceSheetId') || null; } catch(e) { activePriceSheetId = null; }
+}
+
+function savePriceSheetsToStorage() {
+  try { localStorage.setItem('jayaPriceSheets', JSON.stringify(priceSheets)); }
+  catch(e) { showToast('Could not save price sheet — storage may be full'); }
+}
+
+function setActivePriceSheet(id) {
+  activePriceSheetId = id || null;
+  try {
+    if (activePriceSheetId) localStorage.setItem('jayaActivePriceSheetId', activePriceSheetId);
+    else localStorage.removeItem('jayaActivePriceSheetId');
+  } catch(e) {}
+}
+
+function showPriceSheetListView() {
+  document.getElementById('ps-list-view').style.display = 'block';
+  document.getElementById('ps-builder-view').style.display = 'none';
+}
+
+function renderPriceSheetsList() {
+  const el = document.getElementById('ps-list');
+  if (!priceSheets.length) {
+    el.innerHTML = '<div class="empty"><div class="eicon">🏷️</div><p>No price sheets yet.<br>Make one from your vendor\'s PDF.</p></div>';
+    return;
+  }
+  el.innerHTML = priceSheets.map(s => `
+    <div class="inv-card" style="cursor:default">
+      <div class="inv-main">
+        <div class="inv-num">${s.id === activePriceSheetId ? '✓ ACTIVE' : ''}</div>
+        <div class="inv-name">${s.name}</div>
+        <div class="inv-date">Saved ${new Date(s.savedAt).toLocaleDateString('en-IN')}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <button class="act-btn" style="padding:6px 12px;font-size:12px;background:${s.id===activePriceSheetId?'var(--success)':'var(--accent)'};color:#fff;flex:none" onclick="setActivePriceSheet('${s.id}');renderPriceSheetsList();showToast('${s.name.replace(/'/g,"\\'")} is now active')">${s.id===activePriceSheetId?'✓ In use':'Use this'}</button>
+        <div style="display:flex;gap:6px">
+          <button class="act-btn pdf" style="padding:6px 10px;font-size:12px;flex:none" onclick="openPsDownloadModal('${s.id}')">📄 PDF</button>
+          <button class="act-btn" style="padding:6px 10px;font-size:12px;background:var(--brand-light);color:var(--accent);flex:none" onclick="editPriceSheet('${s.id}')">✏️ Edit</button>
+          <button class="act-btn" style="padding:6px 10px;font-size:12px;background:var(--brand-light);color:var(--danger);flex:none" onclick="deletePriceSheet('${s.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function deletePriceSheet(id) {
+  const sheet = priceSheets.find(s => s.id === id);
+  if (!sheet) return;
+  if (!confirm(`Delete "${sheet.name}"? This can't be undone.`)) return;
+  priceSheets = priceSheets.filter(s => s.id !== id);
+  savePriceSheetsToStorage();
+  if (activePriceSheetId === id) setActivePriceSheet(null);
+  renderPriceSheetsList();
+  showToast('Price sheet deleted');
+}
+
+function startNewPriceSheet() {
+  editingSheetId = null;
+  draftSheet = { vendor: newEmptyVendorSheet(), groups: [] };
+  document.getElementById('ps-name-input').value = '';
+  document.getElementById('ps-import-status').textContent = '';
+  document.getElementById('ps-list-view').style.display = 'none';
+  document.getElementById('ps-builder-view').style.display = 'block';
+  renderVendorGrid();
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
+function cancelPriceSheetBuilder() { showPriceSheetListView(); }
+
+function renderVendorGrid() {
+  const el = document.getElementById('ps-vendor-grid');
+  let html = '';
+  Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
+    html += `<div style="font-weight:700;font-size:13px;color:var(--brand);margin:10px 0 6px">${cat}</div>`;
+    html += `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:11px">
+      <tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Size</th>${QUALITIES.map(q=>`<th style="padding:4px 6px;border-bottom:1px solid var(--border)">${q}</th>`).join('')}</tr>`;
+    PRICE_SHEET_SKELETON[cat].forEach(size => {
+      html += `<tr><td style="padding:4px 6px;font-weight:600;white-space:nowrap">${size}</td>`;
+      QUALITIES.forEach((q, qi) => {
+        const val = (draftSheet.vendor[cat] && draftSheet.vendor[cat][size] && draftSheet.vendor[cat][size][qi] !== null && draftSheet.vendor[cat][size][qi] !== undefined) ? draftSheet.vendor[cat][size][qi] : '';
+        html += `<td style="padding:2px"><input type="number" step="0.01" value="${val}" style="width:56px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:11px" onchange="updateVendorCell('${cat}','${size}',${qi},this.value)"></td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `</table></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function updateVendorCell(cat, size, qIdx, value) {
+  if (!draftSheet.vendor[cat]) draftSheet.vendor[cat] = {};
+  if (!draftSheet.vendor[cat][size]) draftSheet.vendor[cat][size] = [null,null,null,null,null];
+  draftSheet.vendor[cat][size][qIdx] = value === '' ? null : parseFloat(value);
+  renderComputedPreview();
+}
+
+let groupIdCounter = 0;
+function addGroup() {
+  groupIdCounter++;
+  draftSheet.groups.push({ id: 'g' + groupIdCounter, name: 'Group ' + draftSheet.groups.length, decrease: 0, increase: 0, qualities: [] });
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
+function removeGroup(id) {
+  draftSheet.groups = draftSheet.groups.filter(g => g.id !== id);
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
+function renderGroupsEditor() {
+  const el = document.getElementById('ps-groups-list');
+  if (!draftSheet.groups.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--muted);margin-bottom:10px">No groups yet — add one to start assigning qualities.</p>';
+    return;
+  }
+  el.innerHTML = draftSheet.groups.map(g => {
+    const otherGroupsHave = new Set();
+    draftSheet.groups.forEach(og => { if (og.id !== g.id) og.qualities.forEach(q => otherGroupsHave.add(q)); });
+    return `
+    <div class="item-row-form">
+      <button class="remove-item" onclick="removeGroup('${g.id}')">✕</button>
+      <div class="form-group"><label>Group Name</label><input type="text" value="${g.name}" oninput="updateGroupField('${g.id}','name',this.value)"></div>
+      <div class="form-row">
+        <div class="form-group"><label>% Decrease (off vendor price)</label><input type="number" step="0.01" value="${g.decrease}" oninput="updateGroupField('${g.id}','decrease',this.value)"></div>
+        <div class="form-group"><label>% Increase (after decrease)</label><input type="number" step="0.01" value="${g.increase}" oninput="updateGroupField('${g.id}','increase',this.value)"></div>
+      </div>
+      <div class="form-group">
+        <label>Qualities in this group</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          ${QUALITIES.map(q => `
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;background:var(--bg);padding:6px 10px;border-radius:8px;${otherGroupsHave.has(q) ? 'opacity:0.4' : ''}">
+              <input type="checkbox" ${g.qualities.includes(q)?'checked':''} ${otherGroupsHave.has(q)?'disabled':''} onchange="toggleGroupQuality('${g.id}','${q}',this.checked)"> ${q}
+            </label>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateGroupField(id, field, value) {
+  const g = draftSheet.groups.find(g => g.id === id);
+  if (!g) return;
+  g[field] = (field === 'decrease' || field === 'increase') ? (parseFloat(value) || 0) : value;
+  if (field === 'name') renderGroupsEditor();
+  renderComputedPreview();
+}
+
+function toggleGroupQuality(id, quality, checked) {
+  const g = draftSheet.groups.find(g => g.id === id);
+  if (!g) return;
+  if (checked) { if (!g.qualities.includes(quality)) g.qualities.push(quality); }
+  else { g.qualities = g.qualities.filter(q => q !== quality); }
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
+function renderComputedPreview() {
+  const el = document.getElementById('ps-computed-preview');
+  const unassigned = QUALITIES.filter(q => !groupForQuality(draftSheet.groups, q));
+  const computed = computeSheet(draftSheet.vendor, draftSheet.groups);
+  let html = '';
+  if (unassigned.length) {
+    html += `<p style="color:var(--warn);font-size:12px;margin-bottom:8px">⚠️ Not yet grouped: ${unassigned.join(', ')} — their prices won't show until assigned to a group.</p>`;
+  }
+  Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
+    html += `<div style="font-weight:700;font-size:13px;color:var(--brand);margin:10px 0 6px">${cat}</div>`;
+    html += `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:11px">
+      <tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Size</th>${QUALITIES.map(q=>`<th style="padding:4px 6px;border-bottom:1px solid var(--border)">${q}</th>`).join('')}</tr>`;
+    PRICE_SHEET_SKELETON[cat].forEach(size => {
+      const rates = (computed[cat] && computed[cat][size]) || [null,null,null,null,null];
+      html += `<tr><td style="padding:4px 6px;font-weight:600;white-space:nowrap">${size}</td>${rates.map(r => `<td style="padding:4px 6px;text-align:center">${r===null?'—':'₹'+r.toFixed(2)}</td>`).join('')}</tr>`;
+    });
+    html += `</table></div>`;
+  });
+  el.innerHTML = html;
+}
+
+async function importVendorPdf(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('ps-import-status');
+  if (typeof pdfjsLib === 'undefined') { statusEl.textContent = '⚠️ PDF library failed to load — check your internet connection and try again.'; return; }
+  statusEl.textContent = 'Reading PDF…';
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let fullText = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      fullText += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    const result = parseVendorSheetText(fullText);
+    draftSheet.vendor = result.vendor;
+    renderVendorGrid();
+    renderComputedPreview();
+    if (result.matchedSizes === 0) {
+      statusEl.innerHTML = '⚠️ Couldn\'t recognize any sizes in this PDF. Check it matches the standard layout, or fill in the grid below by hand.';
+    } else {
+      statusEl.innerHTML = `✓ Imported rates for ${result.matchedSizes} size(s). Check the grid below and fix anything that looks wrong.`;
+    }
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = '⚠️ Could not read that PDF. You can still fill in the grid below by hand.';
+  }
+}
+
+function parseVendorSheetText(text) {
+  const vendor = newEmptyVendorSheet();
+  let matchedSizes = 0;
+  const numberToken = '([\\d.]+|-{2,3}|\\*{2,3})';
+  Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
+    PRICE_SHEET_SKELETON[cat].forEach(size => {
+      const sizePattern = size.replace(/x/gi, '[xX]').replace(/\./g, '\\.');
+      const re = new RegExp(sizePattern + '\\s+' + numberToken + '\\s+' + numberToken + '\\s+' + numberToken + '\\s+' + numberToken + '\\s+' + numberToken, 'i');
+      const m = re.exec(text);
+      if (m) {
+        const rates = [m[1], m[2], m[3], m[4], m[5]].map(v => {
+          if (/^[-*]{2,3}$/.test(v)) return null;
+          const n = parseFloat(v);
+          return isNaN(n) ? null : n;
+        });
+        vendor[cat][size] = rates;
+        matchedSizes++;
+      }
+    });
+  });
+  return { vendor, matchedSizes };
+}
+
+let editingSheetId = null;
+
+function openPsSaveModal() {
+  const name = editingSheetId
+    ? (priceSheets.find(s => s.id === editingSheetId)?.name || '')
+    : (document.getElementById('ps-name-input').value.trim());
+  document.getElementById('ps-save-name').value = name;
+  const overwriteBtn = document.querySelector('#ps-save-modal button[onclick="doSavePriceSheet(\'overwrite\')"]');
+  if (overwriteBtn) overwriteBtn.style.display = editingSheetId ? 'block' : 'none';
+  document.getElementById('ps-save-modal').style.display = 'flex';
+}
+
+function closePsSaveModal() { document.getElementById('ps-save-modal').style.display = 'none'; }
+
+function doSavePriceSheet(mode) {
+  const name = document.getElementById('ps-save-name').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  if (!draftSheet.groups.length) { showToast('Add at least one quality group first'); return; }
+  const unassigned = QUALITIES.filter(q => !groupForQuality(draftSheet.groups, q));
+  if (unassigned.length) { showToast(`Assign ${unassigned.join(', ')} to a group first`); return; }
+  const computed = computeSheet(draftSheet.vendor, draftSheet.groups);
+  if (mode === 'overwrite' && editingSheetId) {
+    const idx = priceSheets.findIndex(s => s.id === editingSheetId);
+    if (idx >= 0) {
+      priceSheets[idx] = { ...priceSheets[idx], name, savedAt: new Date().toISOString(), vendor: draftSheet.vendor, groups: draftSheet.groups, computed };
+      savePriceSheetsToStorage();
+      showToast(`"${name}" updated ✓`);
+    }
+  } else {
+    const sheet = { id: 'ps' + Date.now(), name, savedAt: new Date().toISOString(), vendor: draftSheet.vendor, groups: draftSheet.groups, computed };
+    priceSheets.push(sheet);
+    savePriceSheetsToStorage();
+    showToast(`"${name}" saved as new copy ✓`);
+  }
+  editingSheetId = null;
+  closePsSaveModal();
+  showPriceSheetListView();
+  renderPriceSheetsList();
+}
+
+function editPriceSheet(id) {
+  const sheet = priceSheets.find(s => s.id === id);
+  if (!sheet) return;
+  editingSheetId = id;
+  draftSheet = { vendor: JSON.parse(JSON.stringify(sheet.vendor)), groups: JSON.parse(JSON.stringify(sheet.groups)) };
+  document.getElementById('ps-list-view').style.display = 'none';
+  document.getElementById('ps-builder-view').style.display = 'block';
+  renderVendorGrid();
+  renderGroupsEditor();
+  renderComputedPreview();
+}
+
+let psDownloadTargetId = null;
+
+function openPsDownloadModal(id) {
+  psDownloadTargetId = id;
+  const el = document.getElementById('ps-col-checks');
+  el.innerHTML = `
+    <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;padding:8px 10px;background:var(--brand-light);border-radius:8px;cursor:pointer">
+      <input type="checkbox" id="ps-col-all" onchange="toggleAllPsCols(this)" style="width:18px;height:18px;accent-color:var(--accent)"> All Columns (full sheet)
+    </label>
+    <div style="height:1px;background:var(--border);margin:4px 0"></div>
+    ${QUALITIES.map(q => `
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;padding:6px 10px;cursor:pointer;border-radius:8px;border:1px solid var(--border)">
+        <input type="checkbox" class="ps-col-check" value="${q}" style="width:18px;height:18px;accent-color:var(--accent)"> ${q}
+      </label>`).join('')}
+  `;
+  document.getElementById('ps-col-all').checked = true;
+  document.querySelectorAll('.ps-col-check').forEach(c => c.checked = true);
+  document.getElementById('ps-download-modal').style.display = 'flex';
+}
+
+function toggleAllPsCols(allCheckbox) {
+  document.querySelectorAll('.ps-col-check').forEach(c => c.checked = allCheckbox.checked);
+}
+
+function closePsDownloadModal() {
+  document.getElementById('ps-download-modal').style.display = 'none';
+  psDownloadTargetId = null;
+}
+
+function confirmPsDownload() {
+  const selectedQualities = [];
+  document.querySelectorAll('.ps-col-check').forEach(c => { if (c.checked) selectedQualities.push(c.value); });
+  if (!selectedQualities.length) { showToast('Select at least one column'); return; }
+  closePsDownloadModal();
+  exportPriceSheetPdf(psDownloadTargetId, selectedQualities);
+}
+
+function exportPriceSheetPdf(id, selectedQualities) {
+  const sheet = priceSheets.find(s => s.id === id);
+  if (!sheet) return;
+  if (!selectedQualities || !selectedQualities.length) selectedQualities = [...QUALITIES];
+  if (typeof window.jspdf === 'undefined') { showToast('PDF library not loaded — check your connection'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const margin = 12;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = margin;
+
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('68/6 - Middle Street, Chatrapatti - 626 102', margin, y);
+  doc.text('Cell: 94870 53751', pageW - margin, y, { align: 'right' });
+  y += 5;
+  doc.setFontSize(15); doc.setFont('helvetica', 'bold');
+  doc.text('JAYA ENTERPRISES', pageW / 2, y, { align: 'center' });
+  y += 6;
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.text('(Via) Rajapalayam, Virudhunagar - Dist. Tamilnadu', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.text('GSTIN : 33CDQPK3907D1ZO', pageW / 2, y, { align: 'center' });
+  y += 5;
+  doc.setFontSize(11);
+  doc.text('PRICE SHEET', pageW / 2, y, { align: 'center' });
+  if (selectedQualities.length < QUALITIES.length) {
+    y += 5; doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text('Columns: ' + selectedQualities.join(' | '), pageW / 2, y, { align: 'center' });
+  }
+  y += 7;
+  doc.setLineWidth(0.4); doc.line(margin, y, pageW - margin, y); y += 5;
+
+  const numQCols = selectedQualities.length;
+  const tableW = pageW - 2 * margin;
+  const sizeColW = 28;
+  const qualColW = (tableW - sizeColW) / numQCols;
+  const headers = ['SIZE', ...selectedQualities];
+  const colW = [sizeColW, ...selectedQualities.map(() => qualColW)];
+  const colX = [margin];
+  for (let i = 1; i < colW.length; i++) colX.push(colX[i-1] + colW[i-1]);
+  const rowH = 6.2;
+
+  function drawRow(cells, bold, shaded) {
+    if (shaded) { doc.setFillColor(235, 235, 235); doc.rect(margin, y, tableW, rowH, 'F'); }
+    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.2);
+    cells.forEach((cell, i) => {
+      doc.rect(colX[i], y, colW[i], rowH);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(bold ? 8 : 7.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(cell ?? ''), colX[i] + colW[i] / 2, y + rowH * 0.65, { align: 'center' });
+    });
+    y += rowH;
+  }
+
+  const termsLines = ['Terms & conditions:-','1. Freight charges extra','2. Payment: Immediate after delivery','3. Mode of payment: Core Banking','4. No Discount','5. GST 18% extra'];
+  const termsH = 6 + termsLines.length * 4.5;
+  const bottomReserve = margin + termsH + 4;
+
+  Object.keys(PRICE_SHEET_SKELETON).forEach(cat => {
+    const rowsNeeded = 2 + PRICE_SHEET_SKELETON[cat].length;
+    if (y + rowsNeeded * rowH > pageH - bottomReserve) { doc.addPage(); y = margin; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+    doc.text(cat, margin, y + 4); y += 6;
+    drawRow(headers, true, true);
+    PRICE_SHEET_SKELETON[cat].forEach(size => {
+      const allRates = (sheet.computed[cat] && sheet.computed[cat][size]) || [null,null,null,null,null];
+      const filteredRates = selectedQualities.map(q => { const qi = QUALITIES.indexOf(q); return qi >= 0 ? allRates[qi] : null; });
+      drawRow([size, ...filteredRates.map(r => r === null ? '—' : r.toFixed(2))], false, false);
+    });
+    y += 4;
+  });
+
+  y += 2; doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.3); doc.line(margin, y, pageW - margin, y); y += 5;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
+  doc.text(termsLines[0], margin, y); y += 5;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  termsLines.slice(1).forEach(line => { doc.text(line, margin, y); y += 4.5; });
+
+  const payload = { _jayaPriceSheet: true, id: sheet.id, name: sheet.name, savedAt: sheet.savedAt, vendor: sheet.vendor, groups: sheet.groups, computed: sheet.computed };
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  doc.setProperties({ title: 'Price Sheet — ' + sheet.name, subject: 'JAYA_PS_DATA:' + encoded, author: 'JAYA ENTERPRISES' });
+  doc.save(`PriceSheet_${sheet.name.replace(/\s+/g,'_')}.pdf`);
+  showToast('Price sheet PDF downloaded ✓');
+}
+
+async function reimportPriceSheetPdf(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('ps-reimport-status');
+  if (typeof pdfjsLib === 'undefined') { statusEl.textContent = '⚠️ PDF library not loaded — check your internet connection.'; return; }
+  statusEl.textContent = 'Reading PDF…';
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let payload = null;
+    try {
+      const meta = await pdf.getMetadata();
+      const subject = meta?.info?.Subject || meta?.metadata?.get('dc:description') || '';
+      if (subject.startsWith('JAYA_PS_DATA:')) {
+        payload = JSON.parse(decodeURIComponent(escape(atob(subject.slice('JAYA_PS_DATA:'.length)))));
+      }
+    } catch(e) {}
+    if (!payload) {
+      let fullText = '';
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        fullText += content.items.map(it => it.str).join('');
+      }
+      const match = /JAYA_PS_DATA:([A-Za-z0-9+/=]+)/.exec(fullText);
+      if (match) payload = JSON.parse(decodeURIComponent(escape(atob(match[1]))));
+    }
+    if (!payload || !payload._jayaPriceSheet) {
+      statusEl.textContent = '⚠️ This PDF doesn\'t contain embedded Jaya price sheet data. Use the vendor import instead.';
+      return;
+    }
+    const existingIdx = priceSheets.findIndex(s => s.id === payload.id);
+    const restored = { id: payload.id, name: payload.name, savedAt: payload.savedAt, vendor: payload.vendor, groups: payload.groups, computed: payload.computed };
+    if (existingIdx >= 0) { priceSheets[existingIdx] = restored; statusEl.textContent = `✓ Updated "${restored.name}" from PDF.`; }
+    else { priceSheets.push(restored); statusEl.textContent = `✓ Restored "${restored.name}" from PDF.`; }
+    savePriceSheetsToStorage();
+    renderPriceSheetsList();
+    showToast(`"${restored.name}" imported ✓`);
+  } catch(err) {
+    console.error(err);
+    statusEl.textContent = '⚠️ Could not read that PDF. Make sure it was exported from this app.';
+  }
+}
+
+function onPriceSheetSelect(id) {
+  setActivePriceSheet(id || null);
+  const hint = document.getElementById('f-pricesheet-hint');
+  if (id) {
+    const sheet = priceSheets.find(s => s.id === id);
+    hint.textContent = sheet ? `✓ Rates will auto-fill from "${sheet.name}"` : '';
+  } else {
+    hint.textContent = 'No sheet selected — enter rates manually below.';
+  }
+}
+
+function populatePriceSheetSelector() {
+  const sel = document.getElementById('f-pricesheet');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— None (manual rate entry) —</option>' +
+    priceSheets.map(s => `<option value="${s.id}" ${s.id === activePriceSheetId ? 'selected' : ''}>${s.name}</option>`).join('');
+  const hint = document.getElementById('f-pricesheet-hint');
+  if (activePriceSheetId) {
+    const sheet = priceSheets.find(s => s.id === activePriceSheetId);
+    if (hint) hint.textContent = sheet ? `✓ Rates will auto-fill from "${sheet.name}"` : '';
+  } else {
+    if (hint) hint.textContent = 'No sheet selected — enter rates manually below.';
+  }
+}
+
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem('jayaConfig');
+    if (saved) config = { ...config, ...JSON.parse(saved) };
+    document.getElementById('cfg-coname').value = config.coName || '';
+    document.getElementById('cfg-addr1').value = config.addr1 || '';
+    document.getElementById('cfg-addr2').value = config.addr2 || '';
+    document.getElementById('cfg-gstin').value = config.gstin || '';
+    document.getElementById('cfg-bank').value = config.bank || '';
+    document.getElementById('cfg-branch').value = config.branch || '';
+    document.getElementById('cfg-acno').value = config.acno || '';
+    document.getElementById('cfg-ifsc').value = config.ifsc || '';
+  } catch(e) {}
+}
+
+function saveSettings() {
+  config.coName = document.getElementById('cfg-coname').value.trim();
+  config.addr1 = document.getElementById('cfg-addr1').value.trim();
+  config.addr2 = document.getElementById('cfg-addr2').value.trim();
+  config.gstin = document.getElementById('cfg-gstin').value.trim();
+  config.bank = document.getElementById('cfg-bank').value.trim();
+  config.branch = document.getElementById('cfg-branch').value.trim();
+  config.acno = document.getElementById('cfg-acno').value.trim();
+  config.ifsc = document.getElementById('cfg-ifsc').value.trim();
+  localStorage.setItem('jayaConfig', JSON.stringify(config));
+  showToast('Settings saved ✓');
+}
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+let previewSource = 'new';
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  const nb = document.getElementById('nav-' + name);
+  if (nb) nb.classList.add('active');
+  if (name === 'home') renderRecent();
+  if (name === 'history') renderHistory();
+  if (name === 'new') populatePriceSheetSelector();
+  if (name === 'pricesheets') { showPriceSheetListView(); renderPriceSheetsList(); }
+  closeDropdown();
+}
+
+function goBackFromPreview() {
+  if (previewSource === 'history') showScreen('history');
+  else showScreen('new');
+}
+
+function editFromPreview() {
+  if (!currentInvoice) return;
+  loadInvoiceIntoForm(currentInvoice);
+  showScreen('new');
+}
+
+function viewInvoice(invNo) {
+  previewSource = 'history';
+  currentInvoice = invoices.find(i => String(i.invNo) === String(invNo));
+  if (!currentInvoice) return;
+  showScreen('preview');
+  document.getElementById('nav-history').classList.add('active');
+  renderInvoiceHTML(currentInvoice);
+  updateSubmitBtn(null);
+}
+
+function editInvoiceFromHistory(invNo) {
+  const inv = invoices.find(i => String(i.invNo) === String(invNo));
+  if (!inv) return;
+  loadInvoiceIntoForm(inv);
+  previewSource = 'history';
+  showScreen('new');
+}
+
+function loadInvoiceIntoForm(inv) {
+  document.getElementById('f-invno').value = inv.invNo || '';
+  document.getElementById('f-invdt').value = inv.invDate || '';
+  document.getElementById('f-cname').value = inv.custName || '';
+  document.getElementById('f-addr').value = inv.address || '';
+  document.getElementById('f-phone').value = inv.phone || '';
+  const stateSelect = document.getElementById('f-state');
+  stateSelect.value = inv.state || '';
+  document.getElementById('f-statecode').value = inv.stateCode || '';
+  document.getElementById('f-gstin').value = inv.custGSTIN || '';
+  document.getElementById('f-bundles').value = inv.bundles || '';
+  document.getElementById('f-transport').value = inv.transport || '';
+  document.getElementById('f-lrno').value = inv.lrNo || '';
+  document.getElementById('f-supply-dt').value = inv.supplyDt || '';
+  document.getElementById('f-packing').value = inv.packing || 0;
+  document.getElementById('f-discount').value = inv.discountPct || 0;
+  document.getElementById('f-gst').value = inv.gstRate || 9;
+  document.getElementById('f-taxtype').value = inv.taxType || 'cgst_sgst';
+
+  const container = document.getElementById('items-container');
+  container.innerHTML = '';
+  itemIndex = -1;
+  (inv.items || []).forEach((item, i) => {
+    itemIndex++;
+    const div = document.createElement('div');
+    div.className = 'item-row-form';
+    div.id = 'item-' + itemIndex;
+    let detectedCat = '', detectedSize = '', detectedQuality = '', detectedOther = '';
+    for (const cat of Object.keys(PRICE_SHEET_SKELETON)) {
+      if ((item.desc||'').includes(cat)) {
+        detectedCat = cat;
+        for (const sz of PRICE_SHEET_SKELETON[cat]) {
+          if ((item.desc||'').startsWith(sz)) { detectedSize = sz; break; }
+        }
+        for (const q of QUALITIES) {
+          if ((item.desc||'').includes(q)) { detectedQuality = q; break; }
+        }
+        break;
+      }
+    }
+    if (!detectedCat) detectedOther = item.desc || '';
+    const sizeOptions = detectedCat ? PRICE_SHEET_SKELETON[detectedCat].map(s => `<option value="${s}" ${s===detectedSize?'selected':''}>${s}</option>`).join('') : '';
+    const qualityOptions = QUALITIES.map(q => `<option value="${q}" ${q===detectedQuality?'selected':''}>${q}</option>`).join('');
+    div.innerHTML = `
+      <button class="remove-item" onclick="removeItem(${itemIndex})">✕</button>
+      <input type="hidden" class="i-lot" value="${item.lot||''}">
+      <input type="hidden" class="i-hsn" value="${item.hsn||'4817'}">
+      <div class="form-group"><label>Item Type</label>
+        <select class="i-category" onchange="onCategoryChange(this)">
+          <option value="">— Select —</option>
+          <option value="Standard Envelope" ${detectedCat==='Standard Envelope'?'selected':''}>Standard Envelope</option>
+          <option value="2&quot; Box Envelope" ${detectedCat==='2" Box Envelope'?'selected':''}>2" Box Envelope</option>
+          <option value="other" ${!detectedCat?'selected':''}>Other (type manually)</option>
+        </select>
+      </div>
+      <div class="form-row i-dropdown-row" style="${!detectedCat?'display:none':''}">
+        <div class="form-group"><label>Size</label><select class="i-size" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option>${sizeOptions}</select></div>
+        <div class="form-group"><label>Quality</label><select class="i-quality" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option>${qualityOptions}</select></div>
+      </div>
+      <div class="form-group i-other-row" style="${!detectedCat?'':'display:none'}">
+        <label>Description of Goods</label>
+        <input type="text" class="i-desc-other" value="${detectedOther}" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))">
+      </div>
+      <input type="hidden" class="i-desc" value="${item.desc||''}">
+      <div class="form-row">
+        <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" value="${item.qty||''}" placeholder="0" oninput="calcItemTotal(this)"></div>
+        <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" inputmode="decimal" value="${item.rate||''}" placeholder="0.00" oninput="calcItemTotal(this)"></div>
+      </div>
+      <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;" value="${item.total ? '₹' + item.total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}"></div>`;
+    container.appendChild(div);
+  });
+  if (itemIndex < 0) { itemIndex = 0; addItem(); }
+  document.querySelectorAll('.remove-item').forEach(b => b.style.display = document.querySelectorAll('.item-row-form').length > 1 ? 'block' : 'none');
+  calcTotals();
+  updateSubmitBtn(inv.invNo);
+}
+
+function updateSubmitBtn(invNo) {
+  const btn = document.getElementById('submit-inv-btn');
+  if (!btn) return;
+  if (invNo) btn.textContent = `💾 Update Invoice #${invNo}`;
+  else btn.innerHTML = '👁 Preview &amp; Print Invoice';
+  btn._editingInvNo = invNo || null;
+}
+
+function clearEntireBill() {
+  if (!confirm('Are you sure you want to clear this entire bill? All entered data will be lost.')) return;
+  document.getElementById('f-invno').value = '';
+  setTodayDate();
+  document.getElementById('f-cname').value = '';
+  document.getElementById('f-addr').value = '';
+  document.getElementById('f-phone').value = '';
+  document.getElementById('f-state').value = '';
+  document.getElementById('f-statecode').value = '';
+  document.getElementById('f-gstin').value = '';
+  document.getElementById('f-bundles').value = '';
+  document.getElementById('f-transport').value = '';
+  document.getElementById('f-lrno').value = '';
+  document.getElementById('f-supply-dt').value = '';
+  document.getElementById('f-packing').value = '0';
+  document.getElementById('f-discount').value = '0';
+  document.getElementById('f-gst').value = '9';
+  document.getElementById('f-taxtype').value = 'cgst_sgst';
+  const container = document.getElementById('items-container');
+  container.innerHTML = '';
+  itemIndex = 0;
+  const div = document.createElement('div');
+  div.className = 'item-row-form';
+  div.id = 'item-0';
+  div.innerHTML = `
+    <button class="remove-item" onclick="removeItem(0)" style="display:none">✕</button>
+    <input type="hidden" class="i-lot" value="">
+    <input type="hidden" class="i-hsn" value="4817">
+    <div class="form-group"><label>Item Type</label>
+      <select class="i-category" onchange="onCategoryChange(this)">
+        <option value="">— Select —</option>
+        <option value="Standard Envelope">Standard Envelope</option>
+        <option value="2&quot; Box Envelope">2" Box Envelope</option>
+        <option value="other">Other (type manually)</option>
+      </select>
+    </div>
+    <div class="form-row i-dropdown-row">
+      <div class="form-group"><label>Size</label><select class="i-size" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+      <div class="form-group"><label>Quality</label><select class="i-quality" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+    </div>
+    <div class="form-group i-other-row" style="display:none"><label>Description of Goods</label><input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))"></div>
+    <input type="hidden" class="i-desc">
+    <div class="form-row">
+      <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" placeholder="2100" oninput="calcItemTotal(this)"></div>
+      <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" inputmode="decimal" placeholder="4.35" oninput="calcItemTotal(this)"></div>
+    </div>
+    <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" placeholder="Auto-calculated" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;"></div>`;
+  container.appendChild(div);
+  calcTotals();
+  updateSubmitBtn(null);
+  previewSource = 'new';
+  showToast('Bill cleared ✓');
+}
+
+// ================================================================
+// STATE CODES & TAX AUTO-SWITCH
+// ================================================================
+const STATE_CODES = {
+  'Tamil Nadu': '33', 'Karnataka': '29', 'Andhra Pradesh': '37',
+  'Telangana': '36', 'Kerala': '32', 'Puducherry': '34', 'Lakshadweep': '31'
+};
+
+function onStateChange(state) {
+  const code = STATE_CODES[state] || '';
+  document.getElementById('f-statecode').value = code;
+  // Our company is Tamil Nadu (33) — intra if customer also 33, else inter
+  const taxTypeEl = document.getElementById('f-taxtype');
+  if (code === '33') taxTypeEl.value = 'cgst_sgst';
+  else if (code) taxTypeEl.value = 'igst';
+  calcTotals();
+}
+
+function onGstinInput(val) {
+  const cleaned = val.replace(/\s/g, '');
+  if (cleaned.length >= 2) {
+    const code = cleaned.substring(0, 2);
+    const stateEntry = Object.entries(STATE_CODES).find(([, c]) => c === code);
+    if (stateEntry) {
+      document.getElementById('f-state').value = stateEntry[0];
+      document.getElementById('f-statecode').value = code;
+      const taxTypeEl = document.getElementById('f-taxtype');
+      taxTypeEl.value = code === '33' ? 'cgst_sgst' : 'igst';
+      calcTotals();
+    }
+  }
+}
+
+// ================================================================
+// LOCAL STORAGE
+// ================================================================
+function saveInvoices() {
+  try { localStorage.setItem('jayaInvoices', JSON.stringify(invoices)); }
+  catch(e) { showToast('Could not save invoice — storage may be full'); }
+}
+
+function loadCachedInvoices() {
+  try {
+    const c = localStorage.getItem('jayaInvoices');
+    if (c) { invoices = JSON.parse(c); renderStats(); renderRecent(); renderHistory(); }
+  } catch(e) {}
+}
+
+function exportData() {
+  if (!invoices.length) { showToast('No invoices to export yet'); return; }
+  const payload = { exportedAt: new Date().toISOString(), config, invoices };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Jaya_Invoices_Backup_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded ✓');
+}
+
+function importData(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      const incoming = Array.isArray(payload) ? payload : payload.invoices;
+      if (!Array.isArray(incoming)) { showToast('That file doesn\'t look like a valid backup'); return; }
+      const byNo = new Map(invoices.map(i => [String(i.invNo), i]));
+      incoming.forEach(i => { if (i && i.invNo) byNo.set(String(i.invNo), i); });
+      invoices = Array.from(byNo.values());
+      saveInvoices();
+      renderStats(); renderRecent(); renderHistory();
+      showToast(`Imported ✓ (${invoices.length} invoices total)`);
+    } catch(err) { showToast('Could not read that backup file'); }
+  };
+  reader.readAsText(file);
+}
+
+// ================================================================
+// RENDER STATS / RECENT / HISTORY
+// ================================================================
+function renderStats() {
+  document.getElementById('stat-count').textContent = invoices.length;
+  const now = new Date();
+  const thisMonth = invoices.filter(i => {
+    const d = parseDate(i.invDate);
+    return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  document.getElementById('stat-month').textContent = thisMonth.length;
+  const amt = thisMonth.reduce((s, i) => s + (i.total || 0), 0);
+  document.getElementById('stat-month-amt').textContent = '₹' + amt.toLocaleString('en-IN', {maximumFractionDigits:0});
+}
+
+function parseDate(str) {
+  if (!str) return null;
+  const p = str.split(/[-\/]/);
+  if (p.length === 3) {
+    const yr = p[2].length === 2 ? '20' + p[2] : p[2];
+    return new Date(yr, p[1]-1, p[0]);
+  }
+  return new Date(str);
+}
+
+function formatDateDMY(str) {
+  if (!str) return '';
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+  if (isoMatch) { const [, yyyy, mm, dd] = isoMatch; return `${dd}-${mm}-${yyyy}`; }
+  const d = parseDate(str);
+  if (d && !isNaN(d)) return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+  return str;
+}
+
+function renderRecent() {
+  const el = document.getElementById('recent-list');
+  const recent = [...invoices].sort((a,b) => parseInt(b.invNo)-parseInt(a.invNo)).slice(0, 5);
+  if (!recent.length) { el.innerHTML = '<div class="empty"><div class="eicon">📄</div><p>No invoices yet.<br>Tap New to create your first bill.</p></div>'; return; }
+  el.innerHTML = recent.map(inv => invCard(inv)).join('');
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  let list = [...invoices].sort((a,b) => parseInt(b.invNo)-parseInt(a.invNo));
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  if (q) list = list.filter(i => (i.custName+i.invNo+i.invDate).toLowerCase().includes(q));
+  const now = new Date();
+  if (filterMode === 'thismonth') list = list.filter(i => { const d=parseDate(i.invDate); return d && d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear(); });
+  else if (filterMode === 'last3') list = list.filter(i => { const d=parseDate(i.invDate); return d && (now-d) < 90*86400000; });
+  else if (filterMode === 'thisyear') list = list.filter(i => { const d=parseDate(i.invDate); return d && d.getFullYear()===now.getFullYear(); });
+  if (!list.length) { el.innerHTML = '<div class="empty"><div class="eicon">🔍</div><p>No invoices found.</p></div>'; return; }
+  el.innerHTML = list.map(inv => invCard(inv)).join('');
+}
+
+function invCard(inv) {
+  return `<div class="inv-card" style="flex-direction:column;align-items:stretch;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="inv-main">
+        <div class="inv-num">Invoice #${inv.invNo}</div>
+        <div class="inv-name">${inv.custName || '—'}</div>
+        <div class="inv-date">${formatDateDMY(inv.invDate) || ''}</div>
+      </div>
+      <div class="inv-amount">
+        <div class="inv-total">₹${(inv.total||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="inv-items">${(inv.items||[]).length} item(s)</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="viewInvoice('${inv.invNo}')" style="flex:1;padding:9px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👁 View / Print</button>
+      <button onclick="editInvoiceFromHistory('${inv.invNo}')" style="flex:1;padding:9px;background:var(--brand-light);color:var(--accent);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">✏️ Edit Invoice</button>
+    </div>
+  </div>`;
+}
+
+function filterInvoices() { renderHistory(); }
+function setFilter(mode, el) {
+  filterMode = mode;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderHistory();
+}
+
+// ================================================================
+// ITEMS
+// ================================================================
+let itemIndex = 0;
+function addItem() {
+  itemIndex++;
+  const container = document.getElementById('items-container');
+  const div = document.createElement('div');
+  div.className = 'item-row-form';
+  div.id = 'item-' + itemIndex;
+  div.innerHTML = `
+    <button class="remove-item" onclick="removeItem(${itemIndex})">✕</button>
+    <input type="hidden" class="i-lot" value="">
+    <input type="hidden" class="i-hsn" value="4817">
+    <div class="form-group"><label>Item Type</label>
+      <select class="i-category" onchange="onCategoryChange(this)">
+        <option value="">— Select —</option>
+        <option value="Standard Envelope">Standard Envelope</option>
+        <option value="2&quot; Box Envelope">2" Box Envelope</option>
+        <option value="other">Other (type manually)</option>
+      </select>
+    </div>
+    <div class="form-row i-dropdown-row">
+      <div class="form-group"><label>Size</label><select class="i-size" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+      <div class="form-group"><label>Quality</label><select class="i-quality" onchange="onSizeOrQualityChange(this)"><option value="">— Select —</option></select></div>
+    </div>
+    <div class="form-group i-other-row" style="display:none"><label>Description of Goods</label><input type="text" class="i-desc-other" placeholder="Type item description" oninput="syncItemRow(this.closest('.item-row-form'))"></div>
+    <input type="hidden" class="i-desc">
+    <div class="form-row">
+      <div class="form-group"><label>Quantity</label><input type="number" class="i-qty" inputmode="numeric" placeholder="0" oninput="calcItemTotal(this)"></div>
+      <div class="form-group"><label>Rate (₹)</label><input type="number" step="0.01" class="i-rate" inputmode="decimal" placeholder="0.00" oninput="calcItemTotal(this)"></div>
+    </div>
+    <div class="form-group"><label>Total Amount</label><input type="text" class="i-total" readonly style="background:#f8fafc;color:var(--accent);font-weight:700;"></div>`;
+  container.appendChild(div);
+  document.querySelectorAll('.remove-item').forEach(b => b.style.display = 'block');
+  updateItemsQtyBadge();
+}
+
+function removeItem(idx) {
+  const el = document.getElementById('item-' + idx);
+  if (el) el.remove();
+  calcTotals();
+  if (document.querySelectorAll('.item-row-form').length === 1)
+    document.querySelectorAll('.remove-item').forEach(b => b.style.display = 'none');
+}
+
+function onCategoryChange(select) {
+  const row = select.closest('.item-row-form');
+  const category = select.value;
+  const sizeSelect = row.querySelector('.i-size');
+  const qualitySelect = row.querySelector('.i-quality');
+  const otherRow = row.querySelector('.i-other-row');
+  const dropdownRow = row.querySelector('.i-dropdown-row');
+  const otherInput = row.querySelector('.i-desc-other');
+  if (category === 'other') {
+    dropdownRow.style.display = 'none';
+    otherRow.style.display = 'block';
+    sizeSelect.innerHTML = '<option value="">— Select —</option>';
+    qualitySelect.innerHTML = '<option value="">— Select —</option>';
+    otherInput.focus();
+  } else {
+    dropdownRow.style.display = 'grid';
+    otherRow.style.display = 'none';
+    const sizes = PRICE_SHEET_SKELETON[category] || [];
+    sizeSelect.innerHTML = '<option value="">— Select —</option>' + sizes.map(s => `<option value="${s}">${s}</option>`).join('');
+    qualitySelect.innerHTML = '<option value="">— Select —</option>' + QUALITIES.map(q => `<option value="${q}">${q}</option>`).join('');
+  }
+  syncItemRow(row);
+}
+
+function onSizeOrQualityChange(select) {
+  const row = select.closest('.item-row-form');
+  const category = row.querySelector('.i-category').value;
+  const size = row.querySelector('.i-size').value;
+  const quality = row.querySelector('.i-quality').value;
+  const rateInput = row.querySelector('.i-rate');
+  if (category && category !== 'other' && size && quality) {
+    if (activePriceSheetId) {
+      const rate = getRate(category, size, quality);
+      if (rate === null) {
+        showToast(`${size} ${quality} isn't in the selected price sheet — enter the rate manually`);
+        rateInput.value = '';
+      } else {
+        rateInput.value = rate.toFixed(2);
+      }
+      calcItemTotal(rateInput);
+    }
+  }
+  syncItemRow(row);
+}
+
+function syncItemRow(row) {
+  const category = row.querySelector('.i-category').value;
+  const descHidden = row.querySelector('.i-desc');
+  if (category === 'other') {
+    descHidden.value = row.querySelector('.i-desc-other').value;
+  } else {
+    const size = row.querySelector('.i-size').value;
+    const quality = row.querySelector('.i-quality').value;
+    descHidden.value = [size, category, quality].filter(Boolean).join(' ');
+  }
+}
+
+function calcItemTotal(input) {
+  const row = input.closest('.item-row-form');
+  const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
+  const rate = parseFloat(row.querySelector('.i-rate').value) || 0;
+  row.querySelector('.i-total').value = '₹' + (qty * rate).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  calcTotals();
+}
+
+function updateItemsQtyBadge() {
+  const rows = document.querySelectorAll('.item-row-form');
+  let totalItems = 0, totalQty = 0;
+  rows.forEach(row => {
+    const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
+    if (qty > 0) { totalItems++; totalQty += qty; }
+  });
+  const badge = document.getElementById('items-qty-badge');
+  if (badge) badge.textContent = `Total Items: ${totalItems} | Total Qty: ${totalQty}`;
+}
+
+function calcTotals() {
+  let subtotal = 0;
+  document.querySelectorAll('.item-row-form').forEach(row => {
+    const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
+    const rate = parseFloat(row.querySelector('.i-rate').value) || 0;
+    subtotal += qty * rate;
+  });
+  const packing = parseFloat(document.getElementById('f-packing').value) || 0;
+  const discountPct = parseFloat(document.getElementById('f-discount').value) || 0;
+  const grossAmount = subtotal + packing;
+  const discountAmt = grossAmount * discountPct / 100;
+  const taxable = grossAmount - discountAmt;
+  const gstRate = parseFloat(document.getElementById('f-gst').value) || 9;
+  const taxType = document.getElementById('f-taxtype').value;
+  let sgst = 0, cgst = 0, igst = 0;
+  if (taxType === 'igst') igst = taxable * (gstRate * 2) / 100;
+  else { sgst = taxable * gstRate / 100; cgst = taxable * gstRate / 100; }
+  const total = taxable + sgst + cgst + igst;
+  const fmt = v => '₹' + v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('calc-subtotal').textContent = fmt(subtotal);
+  document.getElementById('calc-packing').textContent = fmt(packing);
+  document.getElementById('calc-discount').textContent = '- ' + fmt(discountAmt);
+  document.getElementById('calc-taxable').textContent = fmt(taxable);
+  const rowSgst = document.getElementById('row-sgst');
+  const rowCgst = document.getElementById('row-cgst');
+  const rowIgst = document.getElementById('row-igst');
+  if (taxType === 'igst') {
+    rowSgst.style.display = 'none'; rowCgst.style.display = 'none'; rowIgst.style.display = 'flex';
+    const igstRateLabel = (gstRate*2) % 1 === 0 ? (gstRate*2).toFixed(0) : (gstRate*2).toFixed(1);
+    document.getElementById('lbl-igst').textContent = `IGST ${igstRateLabel}%`;
+    document.getElementById('calc-igst').textContent = fmt(igst);
+  } else {
+    rowSgst.style.display = 'flex'; rowCgst.style.display = 'flex'; rowIgst.style.display = 'none';
+    document.getElementById('lbl-sgst').textContent = `SGST ${gstRate}%`;
+    document.getElementById('lbl-cgst').textContent = `CGST ${gstRate}%`;
+    document.getElementById('calc-sgst').textContent = fmt(sgst);
+    document.getElementById('calc-cgst').textContent = fmt(cgst);
+  }
+  document.getElementById('calc-total').textContent = fmt(total);
+  updateItemsQtyBadge();
+}
+
+// ================================================================
+// PREVIEW / SAVE INVOICE
+// ================================================================
+function previewInvoice() {
+  const items = [];
+  document.querySelectorAll('.item-row-form').forEach(row => {
+    syncItemRow(row);
+    const qty = parseFloat(row.querySelector('.i-qty').value) || 0;
+    const rate = parseFloat(row.querySelector('.i-rate').value) || 0;
+    items.push({ lot: row.querySelector('.i-lot').value, hsn: row.querySelector('.i-hsn').value, desc: row.querySelector('.i-desc').value, qty, rate, total: qty * rate });
+  });
+  const subtotal = items.reduce((s,i) => s+i.total, 0);
+  const packing = parseFloat(document.getElementById('f-packing').value) || 0;
+  const discountPct = parseFloat(document.getElementById('f-discount').value) || 0;
+  const grossAmount = subtotal + packing;
+  const discountAmt = grossAmount * discountPct / 100;
+  const taxable = grossAmount - discountAmt;
+  const gstRate = parseFloat(document.getElementById('f-gst').value) || 9;
+  const taxType = document.getElementById('f-taxtype').value;
+  let sgst = 0, cgst = 0, igst = 0;
+  if (taxType === 'igst') igst = taxable * (gstRate * 2) / 100;
+  else { sgst = taxable * gstRate / 100; cgst = taxable * gstRate / 100; }
+  const total = taxable + sgst + cgst + igst;
+  const invNo = document.getElementById('f-invno').value.trim();
+  if (!invNo) { showToast('Please enter an invoice number'); return; }
+  currentInvoice = {
+    invNo,
+    invDate: document.getElementById('f-invdt').value,
+    custName: document.getElementById('f-cname').value,
+    address: document.getElementById('f-addr').value,
+    phone: document.getElementById('f-phone').value,
+    state: document.getElementById('f-state').value,
+    stateCode: document.getElementById('f-statecode').value,
+    custGSTIN: document.getElementById('f-gstin').value,
+    bundles: document.getElementById('f-bundles').value,
+    transport: document.getElementById('f-transport').value,
+    lrNo: document.getElementById('f-lrno').value,
+    supplyDt: document.getElementById('f-supply-dt').value,
+    items, packing, discountPct, discountAmt, gstRate, taxType, subtotal, taxable, sgst, cgst, igst, total
+  };
+  const idx = invoices.findIndex(i => String(i.invNo) === String(invNo));
+  if (idx >= 0) invoices[idx] = currentInvoice; else invoices.push(currentInvoice);
+  saveInvoices();
+  renderStats();
+  showScreen('preview');
+  renderInvoiceHTML(currentInvoice);
+}
+
+// ================================================================
+// INVOICE HTML RENDERER — phone row added above State
+// ================================================================
+function renderInvoiceHTML(inv) {
+  const fmt = v => v.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const emptyRows = Math.max(0, 20 - (inv.items||[]).length);
+  let itemsHTML = (inv.items||[]).map(item => `
+    <tr class="item-row">
+      <td>${item.lot||''}</td>
+      <td>${item.hsn||''}</td>
+      <td class="desc">${item.desc||''}</td>
+      <td>${item.qty||''}</td>
+      <td>${item.rate ? item.rate.toFixed(2) : ''}</td>
+      <td>${item.total ? fmt(item.total) : ''}</td>
+    </tr>`).join('');
+  for(let i=0;i<emptyRows;i++) itemsHTML += `<tr class="empty-row"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+  const words = numberToWords(Math.round(inv.total||0));
+  const roundOff = Math.round(inv.total||0) - (inv.total||0);
+  const isIgst = inv.taxType === 'igst';
+  const igstRateDisplay = (inv.gstRate||9) * 2;
+
+  // Phone row only if phone exists
+  const phoneRow = inv.phone ? `<tr><td>Phone</td><td class="colon">:</td><td>${inv.phone}</td></tr>` : '';
+
+  document.getElementById('invoice-render').innerHTML = `
+  <div class="inv-box">
+    <div class="inv-header">
+      <div class="co-name">${config.coName}</div>
+      <div class="co-addr">${config.addr1}<br>${config.addr2}</div>
+      <div class="co-gstin">GSTIN : ${config.gstin}</div>
+    </div>
+    <div class="inv-title-row">TAX INVOICE</div>
+    <div class="inv-details-row">
+      <div class="inv-receiver">
+        <div class="section-hdr">Details of the Receiver :</div>
+        <table>
+          <tr><td>Name</td><td class="colon">:</td><td><strong>${inv.custName||''}</strong></td></tr>
+          <tr><td>Address</td><td class="colon">:</td><td>${(inv.address||'').replace(/\n/g,'<br>')}</td></tr>
+          ${phoneRow}
+          <tr><td>State</td><td class="colon">:</td><td>${inv.state||''}</td></tr>
+          <tr><td>State Code</td><td class="colon">:</td><td>${inv.stateCode||''}</td></tr>
+          <tr><td>GSTIN No</td><td class="colon">:</td><td><strong>${inv.custGSTIN||''}</strong></td></tr>
+        </table>
+      </div>
+      <div class="inv-meta">
+        <table>
+          <tr><td>Invoice No</td><td class="colon">:</td><td>${inv.invNo||''}</td></tr>
+          <tr><td>Invoice Dt</td><td class="colon">:</td><td>${formatDateDMY(inv.invDate)||''}</td></tr>
+          <tr><td>No.of Bundles</td><td class="colon">:</td><td>${inv.bundles||''}</td></tr>
+          <tr><td>Mode of Transport</td><td class="colon">:</td><td>${inv.transport||''}</td></tr>
+          <tr><td>LR No</td><td class="colon">:</td><td>${inv.lrNo||''}</td></tr>
+          <tr><td>Date &amp; Time of Supply</td><td class="colon">:</td><td>${inv.supplyDt||''}</td></tr>
+        </table>
+      </div>
+    </div>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:36px">Lot No</th>
+          <th style="width:50px">HSN Code</th>
+          <th>Description of Goods</th>
+          <th style="width:50px">Quantity</th>
+          <th style="width:44px">Rate</th>
+          <th style="width:70px">Total Amount</th>
+        </tr>
+      </thead>
+      <tbody>${itemsHTML}</tbody>
+    </table>
+    <div class="inv-footer">
+      <div class="inv-words">
+        <div class="words-label">Invoice Total ( In words ) :</div>
+        <div class="words-val">Rupees ${words} Only.</div>
+        <div class="bank-info">
+          <table>
+            <tr><td>BANK</td><td>${config.bank}</td></tr>
+            <tr><td>BRANCH</td><td>${config.branch}</td></tr>
+            <tr><td>A/C NO</td><td>${config.acno}</td></tr>
+            <tr><td>IFSC</td><td>${config.ifsc}</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="inv-totals">
+        <table>
+          <tr><td>Total Amount</td><td></td><td>${fmt(inv.subtotal||0)}</td></tr>
+          <tr><td>Packing Charges</td><td></td><td>${inv.packing ? fmt(inv.packing) : '-'}</td></tr>
+          ${inv.discountAmt ? `<tr><td>Discount</td><td>${(inv.discountPct||0).toFixed(0)}%</td><td>${fmt(inv.discountAmt)}</td></tr>` : ''}
+          <tr><td>Taxable Value</td><td></td><td>${fmt(inv.taxable||0)}</td></tr>
+          ${isIgst ? `
+          <tr><td>SGST</td><td></td><td>-</td></tr>
+          <tr><td>CGST</td><td></td><td>-</td></tr>
+          <tr><td>IGST</td><td>${igstRateDisplay}.00%</td><td>${fmt(inv.igst||0)}</td></tr>
+          ` : `
+          <tr><td>SGST</td><td>${inv.gstRate||9}.00%</td><td>${fmt(inv.sgst||0)}</td></tr>
+          <tr><td>CGST</td><td>${inv.gstRate||9}.00%</td><td>${fmt(inv.cgst||0)}</td></tr>
+          <tr><td>IGST</td><td></td><td>-</td></tr>
+          `}
+          <tr><td>Total Amount</td><td></td><td>${fmt(inv.total||0)}</td></tr>
+          <tr><td>Round Off</td><td></td><td>${roundOff >= 0 ? '+' : ''}${roundOff.toFixed(2)}</td></tr>
+          <tr class="final"><td colspan="2">INVOICE TOTAL</td><td>${Math.round(inv.total||0).toLocaleString('en-IN')}.00</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="inv-declaration">
+      <b>Certified that the particulars given above are true and correct and the amount indicated .</b><br>
+      a) represent the price actually charged and that therein is no flow additional consideration directly or indirectly from the amount indicated .<br>
+      b) is provisional as additional consideration will be received from the buyer on ac
+    </div>
+    <div class="inv-sign-row">
+      <div class="inv-eref">
+        <div class="eref-label">Electronic Reference Number</div>
+      </div>
+      <div class="inv-sign">
+        <div class="for-line">For &nbsp;&nbsp;${config.coName}</div>
+        <div class="auth-line">Authorised Signatory</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ================================================================
+// NUMBER TO WORDS
+// ================================================================
+function numberToWords(n) {
+  if (n === 0) return 'Zero';
+  const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function words(n) {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n/10)] + (n%10 ? ' ' + a[n%10] : '');
+    if (n < 1000) return a[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + words(n%100) : '');
+    if (n < 100000) return words(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + words(n%1000) : '');
+    if (n < 10000000) return words(Math.floor(n/100000)) + ' Lakh' + (n%100000 ? ' ' + words(n%100000) : '');
+    return words(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' ' + words(n%10000000) : '');
+  }
+  return words(n);
+}
+
+// ================================================================
+// PRINT / PDF
+// ================================================================
+function printInvoice() {
+  const content = document.getElementById('invoice-render').innerHTML;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice #${currentInvoice?.invNo||''} - ${config.coName}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%}
+    body{font-family:Arial,sans-serif;font-size:10px;padding:0}
+    .inv-box{width:100%;height:100%;border:1.5px solid #333}
+    .inv-header{text-align:center;padding:8px 6px 6px;border-bottom:1px solid #333}
+    .inv-header .co-name{font-size:15px;font-weight:700;letter-spacing:0.5px}
+    .inv-header .co-addr{font-size:9px;line-height:1.6;margin-top:2px}
+    .inv-header .co-gstin{font-size:10px;font-weight:600;margin-top:3px}
+    .inv-title-row{text-align:center;padding:5px;font-size:12px;font-weight:700;letter-spacing:1px;border-bottom:1px solid #333}
+    .inv-details-row{display:flex;border-bottom:1px solid #333}
+    .inv-receiver{flex:1.2;padding:6px 8px;border-right:1px solid #333;font-size:9.5px}
+    .inv-receiver .section-hdr{font-size:9px;font-weight:700;margin-bottom:4px;text-decoration:underline}
+    .inv-receiver table,.inv-meta table{width:100%;border-collapse:collapse}
+    .inv-receiver td{padding:1.5px 0;vertical-align:top}
+    .inv-meta td{padding:1.5px 0;vertical-align:middle}
+    .inv-receiver td:first-child{white-space:nowrap;min-width:65px;font-weight:600}
+    .inv-receiver td.colon{white-space:nowrap;text-align:center;width:12px;padding:1.5px 2px;font-weight:600;vertical-align:top}
+    .inv-meta td.colon{white-space:nowrap;text-align:center;width:12px;padding:1.5px 2px;font-weight:600;vertical-align:middle}
+    .inv-meta{flex:1;padding:6px 8px;font-size:9.5px}
+    .inv-meta td:first-child{white-space:nowrap;font-weight:600;min-width:85px}
+    .inv-meta td:last-child{text-align:center}
+    .items-table{width:100%;border-collapse:collapse;border-bottom:1px solid #333}
+    .items-table th{background:#f5f5f5;padding:4px 5px;font-size:9px;text-align:center;border-right:1px solid #333;border-bottom:1px solid #333;font-weight:700}
+    .items-table th:last-child{border-right:none}
+    .items-table td{padding:3px 5px;font-size:9px;text-align:center;border-right:1px solid #333;vertical-align:top}
+    .items-table td.desc{text-align:left}
+    .items-table td:last-child{border-right:none}
+    .items-table tr.item-row td{height:28px;border-bottom:0.5px solid #eee}
+    .items-table tr.empty-row td{height:28px;border-bottom:0.5px solid #f0f0f0}
+    .inv-footer{display:flex;border-bottom:1px solid #333}
+    .inv-words{flex:1.2;padding:6px 8px;border-right:1px solid #333;font-size:9px}
+    .inv-words .words-label{font-weight:700;margin-bottom:3px}
+    .inv-words .words-val{font-size:9.5px;line-height:1.5}
+    .inv-words .bank-info{margin-top:7px;font-size:9px}
+    .inv-words .bank-info table{border-collapse:collapse}
+    .inv-words .bank-info td{padding:1px 0;vertical-align:top}
+    .inv-words .bank-info td:first-child{min-width:45px;font-weight:600}
+    .inv-totals{flex:1;padding:6px 8px}
+    .inv-totals table{width:100%;border-collapse:collapse;font-size:9.5px}
+    .inv-totals td{padding:2px 2px}
+    .inv-totals td:last-child{text-align:right;font-weight:600}
+    .inv-totals tr.final{font-weight:700;font-size:10.5px;border-top:1px solid #333}
+    .inv-totals tr.final td{padding-top:3px}
+    .inv-declaration{padding:5px 8px;font-size:8px;line-height:1.5;color:#333;border-bottom:1px solid #333}
+    .inv-declaration b{font-size:8.5px}
+    .inv-sign-row{display:flex}
+    .inv-eref{flex:1.2;padding:6px 8px;border-right:1px solid #333;font-size:9px}
+    .inv-eref .eref-label{font-weight:600;margin-bottom:3px}
+    .inv-sign{flex:1;padding:6px 8px;text-align:right}
+    .inv-sign .for-line{font-size:9.5px;font-weight:600;margin-bottom:24px}
+    .inv-sign .auth-line{font-size:9px;border-top:0.5px solid #999;padding-top:3px}
+    @page{size:A4;margin:8mm}
+  </style></head><body>${content}</body></html>`);
+  w.document.close();
+  w.onload = () => { w.print(); };
+}
+
+function savePDF() {
+  if (!currentInvoice) { showToast('No invoice to save'); return; }
+  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+    showToast('PDF library failed to load — check your connection');
+    return;
+  }
+  showToast('Generating PDF…');
+  const source = document.getElementById('invoice-render').querySelector('.inv-box');
+  if (!source) { showToast('Nothing to export'); return; }
+  const renderWidth = 760;
+  const clone = source.cloneNode(true);
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;width:' + renderWidth + 'px;background:#ffffff';
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
+  html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+    .then(canvas => {
+      document.body.removeChild(wrapper);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, pageWidth - margin*2, pageHeight - margin*2);
+      pdf.save(`Invoice_${currentInvoice.invNo || 'draft'}_${config.coName.replace(/\s+/g,'_')}.pdf`);
+      showToast('PDF downloaded ✓');
+    })
+    .catch(err => {
+      if (wrapper.parentNode) document.body.removeChild(wrapper);
+      console.error(err);
+      showToast('PDF generation failed');
+    });
+}
+
+// ================================================================
+// TOAST / DATE / INIT
+// ================================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function setTodayDate() {
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2,'0');
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const yyyy = today.getFullYear();
+  document.getElementById('f-invdt').value = `${yyyy}-${mm}-${dd}`;
+}
+
+window.onload = () => {
+  loadConfig();
+  setTodayDate();
+  loadCachedInvoices();
+  loadPriceSheets();
+  populatePriceSheetSelector();
+  calcTotals();
+  renderStats();
+  renderRecent();
+};
+</script>
+</body>
+</html>
